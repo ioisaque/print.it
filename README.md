@@ -2,7 +2,7 @@
 
 Microserviço local de impressão para **Bematech MP-4200 TH ADV** (e outras térmicas ESC/POS) via **rede (Ethernet, porta 9100)** no macOS.
 
-Seu app web chama `http://127.0.0.1:9280` e o serviço envia os comandos para a impressora — sem diálogo de impressão.
+Seu app web chama `http://127.0.0.1:9280/printit/...` e o serviço envia os comandos para a impressora — sem diálogo de impressão.
 
 ## Pré-requisitos
 
@@ -15,7 +15,7 @@ brew install go
 2. **Impressora na rede** com IP fixo (ex: `192.168.1.201`)
 3. Impressora configurada em modo **ESC/POS** (auto-teste com botão FEED ao ligar → "Conjunto de Comandos")
 
-## Instalação rápida (3 passos)
+## Instalação rápida
 
 ```bash
 cd /Users/ioisaque/Projects/print.it
@@ -23,14 +23,7 @@ chmod +x scripts/*.sh
 ./scripts/build.sh
 ```
 
-Edite o IP da impressora em `config.json`:
-
-```json
-{
-  "printer_host": "192.168.1.201",
-  "printer_port": 9100
-}
-```
+Edite o IP da impressora em `config.json` ou use a interface web.
 
 Inicie o serviço:
 
@@ -49,43 +42,52 @@ Inicie o serviço:
 Com o serviço rodando, abra no navegador:
 
 ```
-http://127.0.0.1:9280
+http://127.0.0.1:9280/printit/
 ```
 
 A UI permite buscar impressoras na rede, configurar opções, imprimir teste, texto, PDF, código de barras, QR Code e imagem.
 
-## Testar em casa
+Frontend em [`web/`](/Users/ioisaque/Projects/print.it/web/):
 
-Com o serviço rodando:
+```
+web/
+  index.html
+  css/          # variables, base, layout, components
+  js/           # api, ui, app + módulos por aba
+  assets/imgs/  # logos IdeYou
+```
+
+## Testar
 
 ```bash
-# 1. Verificar se está no ar
-curl http://127.0.0.1:9280/health
+# Status completo (com configuração)
+curl http://127.0.0.1:9280/printit/status
 
-# 2. Buscar impressoras na rede (leva alguns segundos)
-curl http://127.0.0.1:9280/discover
+# Buscar impressoras na rede
+curl http://127.0.0.1:9280/printit/discover
 
-# 3. Aplicar automaticamente se achar só uma impressora
-curl "http://127.0.0.1:9280/discover?auto=true"
+# Página de teste
+curl -X POST http://127.0.0.1:9280/printit/test
 
-# 4. Imprimir página de teste
-curl -X POST http://127.0.0.1:9280/print/test
-
-# 5. Imprimir texto
-curl -X POST http://127.0.0.1:9280/print \
+# Texto
+curl -X POST http://127.0.0.1:9280/printit/text \
   -H "Content-Type: application/json" \
   -d '{"text":"Pedido #42\nPizza Calabresa\n","cut":true,"align":"center"}'
 
-# 6. Imprimir PDF
-curl -X POST http://127.0.0.1:9280/print/pdf \
+# PDF
+curl -X POST http://127.0.0.1:9280/printit/pdf \
   -F "file=@nota.pdf" \
-  -F "cut=true"
+  -F "cut=true" \
+  -F "cut_between_pages=true" \
+  -F "trim_trailing_blank=true"
 ```
 
 ## Integração com app web
 
 ```javascript
-await fetch("http://127.0.0.1:9280/print", {
+const PRINTIT = "http://127.0.0.1:9280/printit";
+
+await fetch(`${PRINTIT}/text`, {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({
@@ -97,35 +99,36 @@ await fetch("http://127.0.0.1:9280/print", {
 });
 ```
 
-Para PDF (multipart):
+PDF (multipart):
 
 ```javascript
 const form = new FormData();
 form.append("file", pdfFile);
 form.append("cut", "true");
+form.append("cut_between_pages", "true");
+form.append("trim_trailing_blank", "true");
 
-await fetch("http://127.0.0.1:9280/print/pdf", {
-  method: "POST",
-  body: form,
-});
+await fetch(`${PRINTIT}/pdf`, { method: "POST", body: form });
 ```
 
-> **HTTPS:** se seu app web usa `https://`, o navegador pode bloquear chamadas para `http://127.0.0.1`. Nesse caso use o app em HTTP na rede local ou faça proxy pelo backend na mesma máquina.
+> **HTTPS:** se seu app web usa `https://`, o navegador pode bloquear chamadas para `http://127.0.0.1`. Use HTTP na rede local ou proxy pelo backend na mesma máquina.
 
 ## API
 
 | Método | Rota | Descrição |
 |--------|------|-----------|
-| GET | `/discover` | Busca dispositivos com porta 9100 aberta na rede local |
-| POST | `/discover/apply` | Salva `printer_host`/`printer_port` no `config.json` |
-| GET | `/health` | Status do serviço |
-| GET | `/config` | Configuração atual |
-| PUT | `/config` | Atualizar IP/porta da impressora |
-| POST | `/print` | Texto (`json`: `text`, `cut`, `align`, `bold`) |
-| POST | `/print/test` | Página de teste |
-| POST | `/print/pdf` | PDF (`cut`, `cut_between_pages`, `trim_trailing_blank`) |
-| POST | `/print/image` | PNG/JPG (`multipart file` ou `image_base64`) |
-| POST | `/print/raw` | Bytes ESC/POS crus (`data_base64` ou `file`) |
+| GET | `/printit` | Info do serviço (`status`, `admin`) |
+| GET | `/printit/` | Interface web |
+| GET | `/printit/status` | Status do serviço (completo c/ configuração) |
+| PUT | `/printit/config` | Atualizar configuração |
+| GET | `/printit/discover` | Busca impressoras na rede (porta 9100) |
+| POST | `/printit/text` | Imprimir texto |
+| POST | `/printit/pdf` | Imprimir PDF |
+| POST | `/printit/image` | Imprimir imagem |
+| POST | `/printit/raw` | Bytes ESC/POS crus |
+| POST | `/printit/barcode` | Código de barras |
+| POST | `/printit/qrcode` | QR Code |
+| POST | `/printit/test` | Página de teste |
 
 ## Configuração (`config.json`)
 
@@ -136,8 +139,8 @@ await fetch("http://127.0.0.1:9280/print/pdf", {
 | `listen_host` | `127.0.0.1` | Só aceita conexões locais |
 | `listen_port` | `9280` | Porta do microserviço |
 | `paper_width_mm` | `80` | Largura física do papel (58 ou 80) |
-| `printable_width_mm` | `72` em papel 80mm | Área realmente imprimível (evita corte lateral) |
-| `trim_trailing_blank` | `false` | Padrão global para recortar branco no fim |
+| `printable_width_mm` | `72` em papel 80mm | Área imprimível (evita corte lateral) |
+| `trim_trailing_blank` | `false` | Recortar branco no fim por padrão |
 | `cors_origins` | `["*"]` | Origens permitidas no CORS |
 
 ## Solução de problemas
@@ -145,7 +148,7 @@ await fetch("http://127.0.0.1:9280/print/pdf", {
 | Problema | O que verificar |
 |----------|-----------------|
 | `connection refused` na impressora | IP correto? Impressora ligada e na mesma rede? |
-| Caracteres estranhos | Modo ESC/POS na impressora (não BEMATECH puro para texto) |
+| Caracteres estranhos | Modo ESC/POS na impressora |
 | App web não imprime | CORS? Mixed content HTTPS→HTTP? |
 | PDF borrado | Normal em térmica — texto pequeno pode perder nitidez |
 

@@ -1,0 +1,142 @@
+.userbar {
+  position: sticky;
+  top: 0;
+  z-index: 1100;
+  flex-shrink: 0;
+  min-height: 60px;
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 1.5rem;
+  margin-bottom: 20px;
+  background: #fff;
+}
+
+.userbar-left,
+.userbar-right {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.userbar-left {
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: 12px;
+  justify-content: flex-start;
+}
+
+.userbar-right {
+  flex-shrink: 0;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.userbar .logo {
+  height: 40px;
+  width: auto;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--color-neutral-dark);
+  font-weight: 500;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-muted);
+}
+
+.dot.ok {
+  background: var(--color-success);
+}
+
+.dot.err {
+  background: var(--color-error);
+}
+
+main {
+  position: relative;
+  z-index: 1;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 1.5rem 1.5rem;
+}
+
+nav.tabs {
+  display: flex;
+  gap: 2px;
+  flex-wrap: wrap;
+  margin: 0;
+}
+
+nav.tabs button {
+  display: inline-flex;
+  align-items: center;
+  border: none;
+  background: transparent;
+  color: rgba(0, 0, 0, 0.87);
+  padding: 4px 10px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.75;
+  min-height: 30px;
+  text-transform: none;
+  transition: background 0.15s, color 0.15s;
+}
+
+nav.tabs button:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+nav.tabs button.active {
+  color: var(--color-text-secondary);
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.panel {
+  display: none;
+}
+
+.panel.active {
+  display: block;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 900px) {
+  .userbar-left {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  nav.tabs {
+    width: 100%;
+  }
+}
+
+@media (max-width: 600px) {
+  .row {
+    grid-template-columns: 1fr;
+  }
+}

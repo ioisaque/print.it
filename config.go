@@ -106,13 +106,23 @@ func updateConfig(patch Config) (Config, error) {
 	if patch.PrintableWidthMM > 0 {
 		config.PrintableWidthMM = patch.PrintableWidthMM
 	}
-	if patch.TrimTrailingBlank {
-		config.TrimTrailingBlank = true
-	}
 	if len(patch.CorsOrigins) > 0 {
 		config.CorsOrigins = patch.CorsOrigins
 	}
 
+	normalizeConfigLocked()
+	if err := saveConfigLocked(); err != nil {
+		return Config{}, err
+	}
+
+	return config, nil
+}
+
+func saveFullConfig(cfg Config) (Config, error) {
+	configMu.Lock()
+	defer configMu.Unlock()
+
+	config = cfg
 	normalizeConfigLocked()
 	if err := saveConfigLocked(); err != nil {
 		return Config{}, err
