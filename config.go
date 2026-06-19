@@ -1,0 +1,181 @@
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
+)
+
+type Config struct {
+	PrinterHost  string   `json:"printer_host"`
+	PrinterPort  int      `json:"printer_port"`
+	ListenHost   string   `json:"listen_host"`
+	ListenPort   int      `json:"listen_port"`
+	PaperWidthMM       int      `json:"paper_width_mm"`
+	PrintableWidthMM   int      `json:"printable_width_mm"`
+	TrimTrailingBlank  bool     `json:"trim_trailing_blank"`
+	CorsOrigins        []string `json:"cors_origins"`
+}
+
+var (
+	configMu sync.RWMutex
+	config   Config
+)
+
+func defaultConfig() Config {
+	return Config{
+		PrinterHost:  "192.168.1.201",
+		PrinterPort:  9100,
+		ListenHost:   "127.0.0.1",
+		ListenPort:   9280,
+		PaperWidthMM: 80,
+		CorsOrigins:  []string{"*"},
+	}
+}
+
+func configFilePath() string {
+	if env := os.Getenv("PRINT_IT_CONFIG"); env != "" {
+		return env
+	}
+
+	if _, err := os.Stat("config.json"); err == nil {
+		return "config.json"
+	}
+
+	exe, err := os.Executable()
+	if err == nil {
+		dir := filepath.Dir(exe)
+		if dir != "" && dir != "." && !strings.Contains(dir, "/go-build") {
+			return filepath.Join(dir, "config.json")
+		}
+	}
+
+	return "config.json"
+}
+
+func loadConfig() error {
+	configMu.Lock()
+	defer configMu.Unlock()
+
+	config = defaultConfig()
+
+	data, err := os.ReadFile(configFilePath())
+	if err != nil {
+		if os.IsNotExist(err) {
+			return saveConfigLocked()
+		}
+		return err
+	}
+
+	if err := json.Unmarshal(data, &config); err != nil {
+		return err
+	}
+
+	normalizeConfigLocked()
+	return saveConfigLocked()
+}
+
+func getConfig() Config {
+	configMu.RLock()
+	defer configMu.RUnlock()
+	return config
+}
+
+func updateConfig(patch Config) (Config, error) {
+	configMu.Lock()
+	defer configMu.Unlock()
+
+	if patch.PrinterHost != "" {
+		config.PrinterHost = patch.PrinterHost
+	}
+	if patch.PrinterPort > 0 {
+		config.PrinterPort = patch.PrinterPort
+	}
+	if patch.ListenHost != "" {
+		config.ListenHost = patch.ListenHost
+	}
+	if patch.ListenPort > 0 {
+		config.ListenPort = patch.ListenPort
+	}
+	if patch.PaperWidthMM > 0 {
+		config.PaperWidthMM = patch.PaperWidthMM
+	}
+	if patch.PrintableWidthMM > 0 {
+		config.PrintableWidthMM = patch.PrintableWidthMM
+	}
+	if patch.TrimTrailingBlank {
+		config.TrimTrailingBlank = true
+	}
+	if len(patch.CorsOrigins) > 0 {
+		config.CorsOrigins = patch.CorsOrigins
+	}
+
+	normalizeConfigLocked()
+	if err := saveConfigLocked(); err != nil {
+		return Config{}, err
+	}
+
+	return config, nil
+}
+
+func normalizeConfigLocked() {
+	if config.PrinterHost == "" {
+		config.PrinterHost = "192.168.1.201"
+	}
+	if config.PrinterPort == 0 {
+		config.PrinterPort = 9100
+	}
+	if config.ListenHost == "" {
+		config.ListenHost = "127.0.0.1"
+	}
+	if config.ListenPort == 0 {
+		config.ListenPort = 9280
+	}
+	if config.PaperWidthMM == 0 {
+		config.PaperWidthMM = 80
+	}
+	if len(config.CorsOrigins) == 0 {
+		config.CorsOrigins = []string{"*"}
+	}
+}
+
+func saveConfigLocked() error {
+	data, err := json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(configFilePath(), data, 0o644)
+}
+
+func (c Config) printerAddr() string {
+	return fmt.Sprintf("%s:%d", c.PrinterHost, c.PrinterPort)
+}
+
+func (c Config) listenAddr() string {
+	return fmt.Sprintf("%s:%d", c.ListenHost, c.ListenPort)
+}
+
+func (c Config) printableWidthMM() int {
+	if c.PrintableWidthMM > 0 {
+		return c.PrintableWidthMM
+	}
+	if c.PaperWidthMM >= 80 {
+		return 72
+	}
+	if c.PaperWidthMM > 0 && c.PaperWidthMM <= 58 {
+		return 48
+	}
+	if c.PaperWidthMM > 0 {
+		return c.PaperWidthMM
+	}
+	return 72
+}
+
+func (c Config) printablePixelWidth() int {
+	dpi := 203
+	inches := float64(c.printableWidthMM()) / 25.4
+	return int(inches * float64(dpi))
+}

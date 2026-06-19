@@ -1,0 +1,10 @@
+{
+  "printer_host": "192.168.1.201",
+  "printer_port": 9100,
+  "listen_host": "127.0.0.1",
+  "listen_port": 9280,
+  "paper_width_mm": 80,
+  "printable_width_mm": 72,
+  "trim_trailing_blank": false,
+  "cors_origins": ["*"]
+}

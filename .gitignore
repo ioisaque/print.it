@@ -1,0 +1,5 @@
+print.it
+*.exe
+config.json
+.DS_Store
+/tmp/
