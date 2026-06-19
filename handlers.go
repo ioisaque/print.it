@@ -319,10 +319,16 @@ func handleDiscover(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	deep := r.URL.Query().Get("deep") == "true"
+	scanTimeout := 30 * time.Second
+	if deep {
+		scanTimeout = 60 * time.Second
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), scanTimeout)
 	defer cancel()
 
-	result, err := discoverPrinters(ctx, timeout)
+	result, err := discoverPrinters(ctx, timeout, deep)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return

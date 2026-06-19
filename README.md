@@ -63,7 +63,7 @@ web/
 # Status completo (com configuração)
 curl http://127.0.0.1:9280/printit/status
 
-# Buscar impressoras na rede
+# Buscar impressoras na rede (identifica nome, modelo e fabricante via SNMP quando disponível)
 curl http://127.0.0.1:9280/printit/discover
 
 # Página de teste
@@ -121,7 +121,7 @@ await fetch(`${PRINTIT}/pdf`, { method: "POST", body: form });
 | GET | `/printit/` | Interface web |
 | GET | `/printit/status` | Status do serviço (completo c/ configuração) |
 | PUT | `/printit/config` | Atualizar configuração |
-| GET | `/printit/discover` | Busca impressoras na rede (porta 9100) |
+| GET | `/printit/discover` | Busca impressoras na rede (porta 9100, enriquecimento via SNMP/ESC-POS) |
 | POST | `/printit/text` | Imprimir texto |
 | POST | `/printit/pdf` | Imprimir PDF |
 | POST | `/printit/image` | Imprimir imagem |

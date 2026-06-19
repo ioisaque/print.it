@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"fmt"
 	"image"
@@ -13,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/72nd/escposimg"
 	"github.com/gen2brain/go-fitz"
@@ -241,18 +243,44 @@ func printPDFBytes(cfg Config, pdfData []byte, cutEnd bool, cutBetweenPages bool
 }
 
 func printTestPage(cfg Config) error {
-	text := strings.Join([]string{
-		"print.it - teste",
-		"------------------------------",
-		"Impressora: " + cfg.printerAddr(),
-		"Papel: " + fmt.Sprintf("%dmm", cfg.PaperWidthMM),
-		"",
-		"Se voce leu isto,",
-		"a conexao esta OK!",
-		"",
-	}, "\n")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 
-	return printText(cfg, text, "center", false, true, false)
+	printer := enrichDiscoveredPrinter(ctx, cfg.PrinterHost, DiscoveredPrinter{
+		Host:       cfg.PrinterHost,
+		Port:       cfg.PrinterPort,
+		Service:    "raw",
+		Configured: true,
+	}, 2*time.Second, deepEnrichOptions)
+
+	lines := []string{
+		"print.it",
+		"------------------------------",
+	}
+
+	appendIfUseful := func(label, value string) {
+		if isUsefulDeviceString(value) && !isJunkValue(value) {
+			lines = append(lines, label+": "+value)
+		}
+	}
+
+	appendIfUseful("Endereco", cfg.printerAddr())
+	appendIfUseful("Nome", printer.Label)
+	if printer.Name != printer.Label {
+		appendIfUseful("Identificacao", printer.Name)
+	}
+	appendIfUseful("Marca", printer.Manufacturer)
+	appendIfUseful("Chip de rede", printer.MacVendor)
+	appendIfUseful("Modelo", printer.Model)
+	appendIfUseful("Serie", printer.Serial)
+	appendIfUseful("Host", printer.Hostname)
+	appendIfUseful("MAC", printer.MAC)
+	appendIfUseful("Descricao", printer.Description)
+	lines = append(lines, fmt.Sprintf("Papel: %dmm", cfg.PaperWidthMM))
+	lines = append(lines, fmt.Sprintf("Area imprimivel: %dmm", cfg.printableWidthMM()))
+	lines = append(lines, "", "Se voce leu isto,", "a conexao esta OK!", "")
+
+	return printText(cfg, strings.Join(lines, "\n"), "center", false, true, false)
 }
 
 func printBarcode(cfg Config, barcodeType string, data string, label string, align string, cut bool) error {

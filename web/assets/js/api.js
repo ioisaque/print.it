@@ -30,8 +30,9 @@ export const api = {
     },
   },
 
-  discover() {
-    return request(`${PRINTIT}/discover`);
+  discover(deep = false) {
+    const query = deep ? "?deep=true" : "";
+    return request(`${PRINTIT}/discover${query}`);
   },
 
   test() {

@@ -1,6 +1,103 @@
 import { api } from "./api.js";
 import { bindFormSubmit, checkbox, refreshStatus, toast, value } from "./ui.js";
 
+function escapeHtml(text) {
+  return String(text)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+
+function isUsefulField(value) {
+  if (!value) return false;
+  const lower = String(value).trim().toLowerCase();
+  return lower !== "<nil>" && lower !== "nil" && lower !== "n/a" && !lower.startsWith("bsa/");
+}
+
+function renderPrinterItem(p, index) {
+  const title = escapeHtml(p.label || `Impressora ${index + 1}`);
+  const details = [
+    p.device_type || "Impressora térmica",
+    isUsefulField(p.manufacturer) ? `Marca: ${p.manufacturer}` : null,
+    isUsefulField(p.model) ? `Modelo: ${p.model}` : null,
+    isUsefulField(p.mac_vendor) && !isUsefulField(p.manufacturer) ? `Chip de rede: ${p.mac_vendor}` : null,
+    `Endereço: ${p.host}`,
+    isUsefulField(p.hostname) && p.hostname !== p.name ? `Nome na rede: ${p.hostname}` : null,
+    isUsefulField(p.serial) ? `Série: ${p.serial}` : null,
+  ].filter(Boolean);
+
+  return `
+    <div class="printer-item${p.configured ? " selected" : ""}">
+      <div class="printer-info">
+        <div class="printer-title-row">
+          <strong>${title}</strong>
+          ${p.configured ? '<span class="printer-badge">Em uso</span>' : ""}
+        </div>
+        ${details.map((line) => `<span class="printer-meta">${escapeHtml(line)}</span>`).join("")}
+      </div>
+      <button class="btn secondary" data-host="${p.host}" data-port="${p.port}">Usar</button>
+    </div>`;
+}
+
+async function runDiscover({ deep = false } = {}) {
+  const btn = document.getElementById(deep ? "btnDiscoverDeep" : "btnDiscover");
+  const otherBtn = document.getElementById(deep ? "btnDiscover" : "btnDiscoverDeep");
+  const list = document.getElementById("printerList");
+  const defaultLabel = deep ? "Varredura completa" : "Buscar na rede";
+
+  btn.disabled = true;
+  otherBtn.disabled = true;
+  btn.textContent = "Buscando...";
+  list.innerHTML = `<p class="empty">${
+    deep
+      ? "Varredura completa em andamento (todos os métodos, pode levar ~20s)..."
+      : "Buscando impressoras identificáveis na rede..."
+  }</p>`;
+
+  try {
+    const data = await api.discover(deep);
+    if (!data.printers?.length) {
+      list.innerHTML = deep
+        ? '<p class="empty">Nenhuma impressora encontrada na porta 9100.</p>'
+        : '<p class="empty">Nenhuma impressora identificável encontrada. Tente &quot;Varredura completa&quot; para ver todos os dispositivos na porta 9100.</p>';
+      return;
+    }
+
+    const hint = deep
+      ? '<p class="hint">Varredura completa: inclui dispositivos com pouca informação. Use &quot;Imprimir teste&quot; para identificar qual é qual.</p>'
+      : '<p class="hint">Não encontrou a sua? Use &quot;Varredura completa&quot; ou imprima um teste em cada uma para identificar.</p>';
+
+    list.innerHTML = data.printers.map((p, index) => renderPrinterItem(p, index)).join("") + hint;
+
+    list.querySelectorAll("button[data-host]").forEach((b) => {
+      b.addEventListener("click", async () => {
+        try {
+          await api.config.put({
+            printer_host: b.dataset.host,
+            printer_port: parseInt(b.dataset.port, 10),
+          });
+          toast("Impressora selecionada");
+          loadConfigForm();
+          refreshStatus(api);
+        } catch (err) {
+          toast(err.message, false);
+        }
+      });
+    });
+
+    const modeLabel = deep ? "completa" : "rápida";
+    toast(`${data.count} impressora(s) na varredura ${modeLabel} (${data.duration})`);
+  } catch (err) {
+    toast(err.message, false);
+    list.innerHTML = '<p class="empty">Falha na busca.</p>';
+  } finally {
+    btn.disabled = false;
+    otherBtn.disabled = false;
+    btn.textContent = defaultLabel;
+  }
+}
+
 export function initPrinter() {
   bindFormSubmit("btnSaveConfig", async () => {
     await api.config.put({
@@ -14,68 +111,8 @@ export function initPrinter() {
     refreshStatus(api);
   });
 
-  document.getElementById("btnDiscover").addEventListener("click", async () => {
-    const btn = document.getElementById("btnDiscover");
-    const list = document.getElementById("printerList");
-    btn.disabled = true;
-    btn.textContent = "Buscando...";
-    list.innerHTML = '<p class="empty">Varredura em andamento (pode levar ~10s)...</p>';
-
-    try {
-      const data = await api.discover();
-      if (!data.printers?.length) {
-        list.innerHTML = '<p class="empty">Nenhuma impressora encontrada na porta 9100.</p>';
-        return;
-      }
-
-      list.innerHTML = data.printers
-        .map((p) => {
-          const title = [p.manufacturer, p.model].filter(Boolean).join(" ") || `${p.host}:${p.port}`;
-          const meta = [
-            p.model || p.manufacturer ? `${p.host}:${p.port}` : null,
-            p.hostname,
-            p.mac,
-            p.serial ? `S/N ${p.serial}` : null,
-          ]
-            .filter(Boolean)
-            .join(" · ");
-
-          return `
-        <div class="printer-item${p.configured ? " selected" : ""}">
-          <div class="printer-info">
-            <strong>${title}</strong>
-            ${meta ? `<span class="printer-meta">${meta}</span>` : ""}
-          </div>
-          <button class="btn secondary" data-host="${p.host}" data-port="${p.port}">Usar</button>
-        </div>`;
-        })
-        .join("");
-
-      list.querySelectorAll("button").forEach((b) => {
-        b.addEventListener("click", async () => {
-          try {
-            await api.config.put({
-              printer_host: b.dataset.host,
-              printer_port: parseInt(b.dataset.port, 10),
-            });
-            toast("Impressora selecionada: " + b.dataset.host);
-            loadConfigForm();
-            refreshStatus(api);
-          } catch (err) {
-            toast(err.message, false);
-          }
-        });
-      });
-
-      toast(`${data.count} impressora(s) em ${data.duration}`);
-    } catch (err) {
-      toast(err.message, false);
-      list.innerHTML = '<p class="empty">Falha na busca.</p>';
-    } finally {
-      btn.disabled = false;
-      btn.textContent = "Buscar na rede";
-    }
-  });
+  document.getElementById("btnDiscover").addEventListener("click", () => runDiscover({ deep: false }));
+  document.getElementById("btnDiscoverDeep").addEventListener("click", () => runDiscover({ deep: true }));
 
   bindFormSubmit("btnTest", async () => {
     const data = await api.test();
