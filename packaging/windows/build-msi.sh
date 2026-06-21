@@ -23,7 +23,7 @@ else
   exit 1
 fi
 
-"$ISCC" "/DMyAppVersion=$VERSION" packaging/windows/printit.iss
+"$ISCC" "//DMyAppVersion=$VERSION" packaging/windows/printit.iss
 
 echo ""
 echo "Instalador gerado em dist/print.it-${VERSION}-windows-amd64.exe"
