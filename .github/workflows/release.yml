@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Release tag (ex. v0.3.0)
+        description: Release tag (ex. v0.1.0)
         required: true
-        default: v0.3.0
+        default: v0.1.0
 
 permissions:
   contents: write
@@ -21,10 +21,6 @@ jobs:
     strategy:
       matrix:
         include:
-          - goos: windows
-            goarch: amd64
-            ext: .exe
-            ldflags: "-s -w"
           - goos: darwin
             goarch: arm64
             ext: ""
@@ -117,14 +113,26 @@ jobs:
           path: dist/print.it-*-linux-amd64.deb
 
   package-windows:
-    needs: build-binaries
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/download-artifact@v7
+      - uses: actions/setup-go@v6
         with:
-          name: binary-windows-amd64
-          path: dist
+          go-version-file: go.mod
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: mingw-w64-x86_64-gcc
+      - name: Build native Windows binary (CGO + MuPDF estatico)
+        shell: msys2 {0}
+        env:
+          CGO_ENABLED: 1
+        run: |
+          go mod tidy
+          mkdir -p dist
+          gcc --version
+          go build -ldflags "-s -w" -o dist/print.it-windows-amd64.exe .
       - name: Install Inno Setup
         run: choco install innosetup -y
       - name: Build installer
@@ -142,6 +150,7 @@ jobs:
 
   release:
     needs:
+      - build-binaries
       - package-macos-arm64
       - package-macos-amd64
       - package-linux

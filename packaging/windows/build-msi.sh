@@ -8,8 +8,13 @@ VERSION="$(sed -n 's/^const version = "\(.*\)"/\1/p' version.go)"
 BINARY="$ROOT/dist/print.it-windows-amd64.exe"
 
 if [ ! -f "$BINARY" ]; then
-  echo ">> Compilando print.it-windows-amd64.exe..."
-  GOOS=windows GOARCH=amd64 go build -ldflags "-s -w" -o "$BINARY" .
+  echo ">> Compilando print.it-windows-amd64.exe (CGO)..."
+  if [ -z "${MSYSTEM:-}" ] && [ "$(uname -s)" != "MINGW"* ] && [ "$(uname -s)" != "MSYS"* ]; then
+    echo "Build Windows requer MSYS2/MinGW com CGO_ENABLED=1." >&2
+    echo "Use GitHub Actions ou: msys2 -> pacman -S mingw-w64-x86_64-gcc -> CGO_ENABLED=1 go build ..." >&2
+    exit 1
+  fi
+  CGO_ENABLED=1 go build -ldflags "-s -w" -o "$BINARY" .
 fi
 
 if command -v iscc >/dev/null 2>&1; then

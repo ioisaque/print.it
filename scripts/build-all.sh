@@ -28,7 +28,7 @@ build_one() {
 build_one darwin arm64 "dist/print.it-darwin-arm64"
 build_one darwin amd64 "dist/print.it-darwin-amd64"
 build_one linux amd64 "dist/print.it-linux-amd64"
-build_one windows amd64 "dist/print.it-windows-amd64.exe"
+echo ">> Windows: compile no runner windows-latest (CGO) ou MSYS2 local"
 
 echo ""
 echo "Binarios em dist/:"

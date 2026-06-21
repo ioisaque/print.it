@@ -49,7 +49,7 @@ async function ensurePrintIt() {
   try {
     const res = await fetch(`${PRINTIT}/health`, { signal: AbortSignal.timeout(2000) });
     if (!res.ok) throw new Error("offline");
-    return await res.json(); // { ok: true, version: "0.3.0", service: "print.it" }
+    return await res.json(); // { ok: true, version: "0.1.0", service: "print.it" }
   } catch {
     // Mostrar link de download do instalador (macOS / Windows / Linux)
     throw new Error("Instale o print.it neste computador.");
@@ -203,9 +203,11 @@ http://127.0.0.1:9280/printit/
 | Problema | O que verificar |
 |----------|-----------------|
 | PDV não encontra agente | `curl http://127.0.0.1:9280/printit/health` — reinstalar ou relogar |
+| Windows: `libmupdf.dll` / panic ao abrir | Binário compilado sem CGO — use release **0.1.0+** (build nativo Windows) |
 | `connection refused` na impressora | IP correto? Mesma rede? |
 | Segunda instância | Agente usa lock na porta 9289; só uma instância por máquina |
-| Logs | Ver pasta `logs/print.it.log` em Application Support / `.config` / AppData |
+| Logs (Windows) | `C:\ProgramData\print.it\logs\print.it.log` e `startup.log` |
+| Logs (macOS/Linux) | Application Support / `.config` / AppData conforme SO |
 
 ## Licença
 

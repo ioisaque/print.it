@@ -1,6 +1,6 @@
 #define MyAppName "print.it"
 #ifndef MyAppVersion
-#define MyAppVersion "0.3.4"
+#define MyAppVersion "0.1.0"
 #endif
 #define MyAppPublisher "IdeYou"
 #define MyAppURL "https://github.com/ioisaque/print.it"
@@ -29,7 +29,9 @@ Source: "install-task.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "uninstall.ps1"; DestDir: "{app}"; Flags: ignoreversion
 
 [Run]
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\install-task.ps1"" -InstallUser ""{username}"""; StatusMsg: "Configurando inicializacao automatica..."; Flags: runhidden waituntilterminated
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\install-task.ps1"" -InstallDir ""{app}"" -InstallUser ""{username}"""; StatusMsg: "Configurando inicializacao automatica..."; Flags: runhidden waituntilterminated
+Filename: "{app}\{#MyAppExeName}"; Description: "Iniciar print.it"; StatusMsg: "Iniciando print.it..."; Flags: nowait runascurrentuser skipifsilent
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\install-task.ps1"" -InstallDir ""{app}"" -VerifyOnly"; StatusMsg: "Verificando print.it..."; Flags: runhidden waituntilterminated
 
 [UninstallRun]
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\uninstall.ps1"""; Flags: runhidden waituntilterminated
