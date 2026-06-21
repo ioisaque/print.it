@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -38,6 +39,13 @@ func newRouter() http.Handler {
 	mux.Handle("GET /printit/", http.StripPrefix("/printit/", webStaticHandler(webRoot)))
 
 	return withCORS(mux)
+}
+
+func readWebAsset(relPath string) ([]byte, error) {
+	if dir := webDevDir(); dir != "" {
+		return os.ReadFile(filepath.Join(dir, relPath))
+	}
+	return fs.ReadFile(webFS, filepath.Join("web", relPath))
 }
 
 func webDevDir() string {

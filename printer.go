@@ -19,6 +19,7 @@ import (
 	"github.com/72nd/escposimg"
 	"github.com/gen2brain/go-fitz"
 	"github.com/joeyak/go-escpos"
+	"github.com/nfnt/resize"
 )
 
 func dialPrinter(cfg Config) (net.Conn, error) {
@@ -164,7 +165,8 @@ func adjustImageContrast(img image.Image, contrast int) image.Image {
 		return img
 	}
 
-	factor := float64(contrast) / 100
+	// 150 ≈ 1,75×; 200 ≈ 2,5× — mais perceptível em térmica que contrast/100.
+	factor := 1 + (float64(contrast)-100)*0.015
 	bounds := img.Bounds()
 	out := image.NewGray(bounds)
 	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
@@ -443,15 +445,45 @@ func printPDFBytes(cfg Config, pdfData []byte, cutAfterPage, cutAfterDoc CutMode
 	return nil
 }
 
+type escposBytesOutput struct {
+	buf bytes.Buffer
+}
+
+func (o *escposBytesOutput) Write(data []byte) error {
+	_, err := o.buf.Write(data)
+	return err
+}
+
+func (o *escposBytesOutput) Close() error {
+	return nil
+}
+
+func testPageLogoPNG(cfg Config) ([]byte, error) {
+	data, err := readWebAsset("assets/imgs/logo-dark.jpeg")
+	if err != nil {
+		return nil, err
+	}
+
+	src, _, err := image.Decode(bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+
+	canvasW := cfg.printablePixelWidth()
+	if canvasW < 1 {
+		canvasW = 1
+	}
+	scaled := resize.Resize(uint(canvasW), 0, src, resize.Lanczos3)
+
+	return imageToGrayscalePNG(scaled, 0)
+}
+
 func printTestPage(cfg Config, printer DiscoveredPrinter) error {
 	if printer.Label == "" {
 		printer.Label = friendlyPrinterLabel(printer)
 	}
 
-	lines := []string{
-		"print.it",
-		"------------------------------",
-	}
+	var lines []string
 
 	appendIfUseful := func(label, value string) {
 		if isUsefulDeviceString(value) && !isJunkValue(value) {
@@ -472,9 +504,74 @@ func printTestPage(cfg Config, printer DiscoveredPrinter) error {
 	appendIfUseful("Descricao", printer.Description)
 	lines = append(lines, fmt.Sprintf("Papel: %dmm", cfg.PaperWidthMM))
 	lines = append(lines, fmt.Sprintf("Area imprimivel: %dmm", cfg.printableWidthMM()))
-	lines = append(lines, "", "Se voce leu isto,", "a conexao esta OK!", "")
+	lines = append(lines, "Se voce leu isto,", "a conexao esta OK!")
 
-	return printText(cfg, strings.Join(lines, "\n"), "center", false, CutPartial, TrimNever)
+	logoPNG, err := testPageLogoPNG(cfg)
+	if err != nil {
+		return printText(cfg, strings.Join(lines, "\n"), "center", false, CutPartial, TrimNever)
+	}
+
+	tmpDir, err := os.MkdirTemp("", "printit-test-*")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(tmpDir)
+
+	logoPath := filepath.Join(tmpDir, "logo.png")
+	if err := os.WriteFile(logoPath, logoPNG, 0o600); err != nil {
+		return err
+	}
+
+	processedPath, err := contrastProcessedImagePath(logoPath, cfg.PrintContrast)
+	if err != nil {
+		return err
+	}
+	if processedPath != logoPath {
+		defer os.Remove(processedPath)
+	}
+
+	var logoOut escposBytesOutput
+	if err := escposimg.ProcessImage(processedPath, escposImageConfig(cfg), &logoOut); err != nil {
+		return err
+	}
+
+	conn, err := dialPrinter(cfg)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	esc := escpos.NewPrinter(conn)
+	if err := esc.Initialize(); err != nil {
+		return err
+	}
+
+	if logoESC := logoOut.buf.Bytes(); len(logoESC) > 0 {
+		for len(logoESC) > 0 && logoESC[len(logoESC)-1] == '\n' {
+			logoESC = logoESC[:len(logoESC)-1]
+		}
+		if len(logoESC) >= 2 && logoESC[0] == 0x1B && logoESC[1] == '@' {
+			logoESC = logoESC[2:]
+		}
+		if _, err := conn.Write(logoESC); err != nil {
+			return err
+		}
+	}
+
+	if err := esc.Justify(escpos.CenterJustify); err != nil {
+		return err
+	}
+	for _, line := range lines {
+		if err := esc.Println(line); err != nil {
+			return err
+		}
+	}
+
+	if err := esc.FeedLines(1); err != nil {
+		return err
+	}
+	_, err = esc.Write([]byte{0x1D, 'V', 1})
+	return err
 }
 
 func printBarcode(cfg Config, barcodeType string, data string, label string, align string, cut CutMode) error {
