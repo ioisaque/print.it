@@ -564,16 +564,16 @@ func printTestPage(cfg Config, printer DiscoveredPrinter) error {
 	if err := esc.SetLineSpacing(0); err != nil {
 		return err
 	}
-	for i, line := range lines {
-		if i < len(lines)-1 {
-			if err := esc.Println(line); err != nil {
-				return err
-			}
-			continue
-		}
-		if err := esc.Print(line); err != nil {
+	for _, line := range lines {
+		if err := esc.Println(line); err != nil {
 			return err
 		}
+	}
+	if err := esc.ResetLineSpacing(); err != nil {
+		return err
+	}
+	if err := esc.FeedLines(2); err != nil {
+		return err
 	}
 
 	_, err = esc.Write([]byte{0x1D, 'V', 1})
