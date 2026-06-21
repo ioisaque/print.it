@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 )
@@ -45,7 +46,7 @@ func readWebAsset(relPath string) ([]byte, error) {
 	if dir := webDevDir(); dir != "" {
 		return os.ReadFile(filepath.Join(dir, relPath))
 	}
-	return fs.ReadFile(webFS, filepath.Join("web", relPath))
+	return fs.ReadFile(webFS, path.Join("web", relPath))
 }
 
 func webDevDir() string {
