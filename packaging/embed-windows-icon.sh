@@ -4,8 +4,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-if [ ! -f packaging/appicon.ico ]; then
-  echo "packaging/appicon.ico nao encontrado" >&2
+if [ ! -f packaging/appicon.png ]; then
+  echo "packaging/appicon.png nao encontrado" >&2
   exit 1
 fi
 
