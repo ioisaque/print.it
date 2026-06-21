@@ -43,6 +43,7 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
         run: |
+          set -euo pipefail
           go mod tidy
           mkdir -p dist
           eval "$(packaging/read-build-config.sh export)"
@@ -51,7 +52,7 @@ jobs:
             exit 1
           fi
           go build -ldflags "${{ matrix.ldflags }} ${PRINT_IT_LDFLAGS_BUILD}" -o "dist/print.it-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}" .
-          strings "dist/print.it-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}" | grep -q "${PRINT_IT_BARCODES_API_KEY}"
+          strings "dist/print.it-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}" | grep -qF "${PRINT_IT_BARCODES_API_KEY}"
       - uses: actions/upload-artifact@v7
         with:
           name: binary-${{ matrix.goos }}-${{ matrix.goarch }}
@@ -147,7 +148,7 @@ jobs:
           fi
           go build -ldflags "-s -w -H=windowsgui ${PRINT_IT_LDFLAGS_BUILD}" -o dist/print.it-windows-amd64.exe .
           go version
-          strings dist/print.it-windows-amd64.exe | grep -q "${PRINT_IT_BARCODES_API_KEY}"
+          strings dist/print.it-windows-amd64.exe | grep -qF "${PRINT_IT_BARCODES_API_KEY}"
       - name: Install Inno Setup
         run: choco install innosetup -y
       - name: Build installer
