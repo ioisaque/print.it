@@ -40,9 +40,16 @@ Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Fil
 var
   Upgrading: Boolean;
 
+function PreviouslyInstalled(): Boolean;
+begin
+  Result :=
+    RegKeyExists(HKLM64, 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}_is1') or
+    RegKeyExists(HKLM, 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}_is1');
+end;
+
 function InitializeSetup(): Boolean;
 begin
-  Upgrading := IsUpgrade();
+  Upgrading := PreviouslyInstalled();
   Result := True;
 end;
 
