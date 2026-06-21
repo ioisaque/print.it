@@ -699,18 +699,39 @@ func lookupHostname(ctx context.Context, host string) string {
 }
 
 func lookupMAC(host string) string {
-	out, err := exec.Command("arp", "-n", host).Output()
-	if err != nil {
+	host = strings.TrimSpace(host)
+	if host == "" {
 		return ""
 	}
 
-	line := string(out)
-	if idx := strings.Index(line, " at "); idx >= 0 {
-		rest := line[idx+4:]
-		if end := strings.Index(rest, " "); end >= 0 {
-			mac := strings.ToLower(rest[:end])
-			if mac != "(incomplete)" {
-				return normalizeMAC(mac)
+	out, err := exec.Command("arp", "-a", host).Output()
+	if err != nil {
+		out, err = exec.Command("arp", "-n", host).Output()
+		if err != nil {
+			return ""
+		}
+	}
+
+	for _, line := range strings.Split(string(out), "\n") {
+		if !strings.Contains(line, host) {
+			continue
+		}
+		if idx := strings.Index(line, " at "); idx >= 0 {
+			rest := strings.TrimSpace(line[idx+4:])
+			if end := strings.IndexAny(rest, " \t"); end >= 0 {
+				rest = rest[:end]
+			}
+			if rest != "" && rest != "(incomplete)" {
+				return normalizeMAC(rest)
+			}
+		}
+		fields := strings.Fields(strings.TrimSpace(line))
+		for i, field := range fields {
+			if field != host || i+1 >= len(fields) {
+				continue
+			}
+			if mac := normalizeMAC(fields[i+1]); mac != "" && strings.Count(mac, ":") == 5 {
+				return mac
 			}
 		}
 	}
@@ -733,11 +754,21 @@ func lookupIPByMAC(mac string) string {
 
 	for _, line := range strings.Split(string(out), "\n") {
 		match := arpLinePattern.FindStringSubmatch(line)
-		if len(match) < 3 {
+		if len(match) >= 3 {
+			if normalizeMAC(match[2]) == mac {
+				return match[1]
+			}
 			continue
 		}
-		if normalizeMAC(match[2]) == mac {
-			return match[1]
+		fields := strings.Fields(strings.TrimSpace(line))
+		if len(fields) < 2 {
+			continue
+		}
+		if normalizeMAC(fields[1]) != mac {
+			continue
+		}
+		if ip := net.ParseIP(fields[0]); ip != nil && ip.To4() != nil {
+			return fields[0]
 		}
 	}
 
