@@ -5,15 +5,19 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
 
 VERSION="$(sed -n 's/^const version = "\(.*\)"/\1/p' version.go)"
-ARCH="$(uname -m)"
-case "$ARCH" in
-  arm64) GOARCH=arm64 ;;
-  x86_64) GOARCH=amd64 ;;
-  *)
-    echo "Arquitetura macOS nao suportada: $ARCH" >&2
-    exit 1
-    ;;
-esac
+if [ -n "${PRINT_IT_PKG_ARCH:-}" ]; then
+  GOARCH="$PRINT_IT_PKG_ARCH"
+else
+  ARCH="$(uname -m)"
+  case "$ARCH" in
+    arm64) GOARCH=arm64 ;;
+    x86_64) GOARCH=amd64 ;;
+    *)
+      echo "Arquitetura macOS nao suportada: $ARCH" >&2
+      exit 1
+      ;;
+  esac
+fi
 
 BINARY_SRC="$ROOT/dist/print.it-darwin-$GOARCH"
 if [ ! -f "$BINARY_SRC" ]; then

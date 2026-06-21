@@ -13,12 +13,19 @@ if [ ! -f "$BINARY" ]; then
 fi
 
 if ! command -v iscc >/dev/null 2>&1; then
-  echo "Inno Setup (iscc) nao encontrado." >&2
-  echo "Instale: https://jrsoftware.org/isinfo.php" >&2
-  exit 1
+  if [ -x "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" ]; then
+    ISCC="/c/Program Files (x86)/Inno Setup 6/ISCC.exe"
+  elif [ -x "/c/Program Files/Inno Setup 6/ISCC.exe" ]; then
+    ISCC="/c/Program Files/Inno Setup 6/ISCC.exe"
+  else
+    echo "Inno Setup (iscc) nao encontrado." >&2
+    exit 1
+  fi
+else
+  ISCC="iscc"
 fi
 
-iscc "/DMyAppVersion=$VERSION" packaging/windows/printit.iss
+"$ISCC" "/DMyAppVersion=$VERSION" packaging/windows/printit.iss
 
 echo ""
 echo "Instalador gerado em dist/print.it-${VERSION}-windows-amd64.exe"
