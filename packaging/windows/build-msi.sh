@@ -40,6 +40,10 @@ RCEDIT="$ROOT/packaging/windows/rcedit.exe"
 if [ ! -f "$RCEDIT" ]; then
   curl -fsSL -o "$RCEDIT" "https://github.com/electron/rcedit/releases/download/v2.0.0/rcedit-x64.exe"
 fi
+if [ ! -s "$RCEDIT" ]; then
+  echo "rcedit.exe ausente ou vazio em packaging/windows/rcedit.exe" >&2
+  exit 1
+fi
 
 cp packaging/appicon.ico packaging/windows/appicon.ico
 cp packaging/delicon.ico packaging/windows/delicon.ico
