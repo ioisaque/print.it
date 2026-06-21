@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-BINARY="/Applications/print.it.app/Contents/MacOS/print.it"
+BINARY="/Applications/print.it.app/Contents/MacOS/print-it-agent"
 APP="/Applications/print.it.app"
 SHARE="/usr/local/share/print.it"
 PLIST="$HOME/Library/LaunchAgents/com.printit.agent.plist"

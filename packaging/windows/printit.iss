@@ -26,7 +26,7 @@ Compression=lzma2
 SolidCompression=yes
 ArchitecturesInstallIn64BitMode=x64
 PrivilegesRequired=admin
-UninstallDisplayIcon={app}\delicon.ico
+UninstallDisplayIcon={app}\{#MyAppExeName}
 ShowLanguageDialog=no
 
 #if SetupLanguage == "en"
@@ -39,13 +39,10 @@ Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortugue
 
 [Files]
 Source: "..\..\dist\print.it-windows-amd64.exe"; DestDir: "{app}"; DestName: "{#MyAppExeName}"; Flags: ignoreversion
-Source: "delicon.ico"; DestDir: "{app}"; Flags: ignoreversion
-Source: "rcedit.exe"; DestDir: "{app}"; Flags: deleteafterinstall
 Source: "install-task.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "uninstall.ps1"; DestDir: "{app}"; Flags: ignoreversion
 
 [Run]
-Filename: "{app}\rcedit.exe"; Parameters: "--set-icon ""{app}\delicon.ico"" ""{uninstallexe}"""; StatusMsg: "Configurando desinstalador..."; Flags: runhidden waituntilterminated
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\install-task.ps1"" -InstallDir ""{app}"" -InstallUser ""{username}"""; StatusMsg: "Configurando inicializacao automatica..."; Flags: runhidden waituntilterminated
 Filename: "{app}\{#MyAppExeName}"; Description: "Iniciar print.it"; StatusMsg: "Iniciando print.it..."; Flags: nowait runascurrentuser skipifsilent
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\install-task.ps1"" -InstallDir ""{app}"" -VerifyOnly"; StatusMsg: "Verificando print.it..."; Flags: runhidden waituntilterminated

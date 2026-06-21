@@ -1,13 +1,20 @@
 #!/bin/bash
 set -e
 
-BINARY="/Applications/print.it.app/Contents/MacOS/print.it"
+BINARY="/Applications/print.it.app/Contents/MacOS/print-it-agent"
+APP="/Applications/print.it.app"
 SHARE="/usr/local/share/print.it"
 PLIST_TEMPLATE="$SHARE/com.printit.agent.plist"
 
 if [ ! -x "$BINARY" ]; then
   echo "print.it binary not found at $BINARY" >&2
   exit 1
+fi
+
+xattr -dr com.apple.quarantine "$APP" 2>/dev/null || true
+if command -v codesign >/dev/null 2>&1; then
+  codesign -s - --force --timestamp=none "$BINARY" 2>/dev/null || true
+  codesign -s - --force --timestamp=none "$APP" 2>/dev/null || true
 fi
 
 mkdir -p /usr/local/bin
@@ -48,4 +55,5 @@ else
   echo "print.it instalado ($VERSION)."
 fi
 echo "Configure a impressora no sistema de gestao."
+echo "Abra print.it em Aplicativos ou acesse http://127.0.0.1:9280/printit/"
 echo "Se o agente nao iniciar, faca logout/login."

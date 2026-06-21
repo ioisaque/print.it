@@ -35,7 +35,39 @@ OUT="$ROOT/dist/print.it-${VERSION}-macos-${GOARCH}.pkg"
 rm -rf "$PKGROOT" "$SCRIPTS" "$ICONSET"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$PKGROOT/usr/local/share/print.it" "$ICONSET" "$SCRIPTS"
 
-cp "$BINARY_SRC" "$APP/Contents/MacOS/print.it"
+cp "$BINARY_SRC" "$APP/Contents/MacOS/print-it-agent"
+chmod 755 "$APP/Contents/MacOS/print-it-agent"
+
+cat > "$APP/Contents/MacOS/print.it" <<'EOF'
+#!/bin/bash
+APP_DIR="$(cd "$(dirname "$0")" && pwd)"
+AGENT="$APP_DIR/print-it-agent"
+PLIST="$HOME/Library/LaunchAgents/com.printit.agent.plist"
+UID_NUM="$(id -u)"
+
+if [ ! -x "$AGENT" ]; then
+  osascript -e 'display alert "print.it" message "Agente nao encontrado."' 2>/dev/null || true
+  exit 1
+fi
+
+if [ -f "$PLIST" ]; then
+  launchctl kickstart -k "gui/$UID_NUM/com.printit.agent" 2>/dev/null || \
+    launchctl bootstrap "gui/$UID_NUM" "$PLIST" 2>/dev/null || true
+else
+  "$AGENT" &
+fi
+
+for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+  if curl -sf --max-time 1 http://127.0.0.1:9280/printit/health >/dev/null 2>&1; then
+    open "http://127.0.0.1:9280/printit/"
+    exit 0
+  fi
+  sleep 0.4
+done
+
+osascript -e 'display alert "print.it" message "O agente nao respondeu. Verifique ~/Library/Logs/print.it/"' 2>/dev/null || true
+exit 1
+EOF
 chmod 755 "$APP/Contents/MacOS/print.it"
 
 if [ ! -f packaging/appicon.png ]; then
@@ -71,8 +103,8 @@ cat > "$APP/Contents/Info.plist" <<EOF
   <string>${VERSION}</string>
   <key>CFBundleVersion</key>
   <string>${VERSION}</string>
-  <key>LSUIElement</key>
-  <true/>
+  <key>LSMinimumSystemVersion</key>
+  <string>11.0</string>
 </dict>
 </plist>
 EOF

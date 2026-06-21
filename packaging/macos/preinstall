@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-BINARY="/usr/local/bin/print.it"
+BINARY="/Applications/print.it.app/Contents/MacOS/print-it-agent"
 if [ -x "$BINARY" ]; then
   echo "upgrade" > /tmp/printit-install-mode
 fi
@@ -12,5 +12,6 @@ if [ -n "$CONSOLE_USER" ] && [ "$CONSOLE_USER" != "root" ] && [ "$CONSOLE_USER" 
   launchctl bootout "gui/$USER_ID/com.printit.agent" 2>/dev/null || true
 fi
 
+killall print-it-agent 2>/dev/null || true
 killall print.it 2>/dev/null || true
 sleep 1
