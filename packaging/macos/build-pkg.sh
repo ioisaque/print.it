@@ -38,7 +38,8 @@ cp packaging/macos/com.printit.agent.plist "$PKGROOT/usr/local/share/print.it/"
 cp packaging/macos/uninstall.sh "$PKGROOT/usr/local/share/print.it/"
 chmod 755 "$PKGROOT/usr/local/share/print.it/uninstall.sh"
 cp packaging/macos/postinstall "$SCRIPTS/"
-chmod 755 "$SCRIPTS/postinstall"
+cp packaging/macos/preinstall "$SCRIPTS/"
+chmod 755 "$SCRIPTS/postinstall" "$SCRIPTS/preinstall"
 
 COMPONENT="$ROOT/dist/print.it-component.pkg"
 pkgbuild \

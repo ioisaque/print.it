@@ -6,6 +6,9 @@ $TaskName = "print.it"
 
 Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
 
+Get-Process -Name "print.it" -ErrorAction SilentlyContinue | Stop-Process -Force
+Start-Sleep -Seconds 1
+
 if (Test-Path $InstallDir) {
     Remove-Item -Recurse -Force $InstallDir
 }

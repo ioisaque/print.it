@@ -26,8 +26,9 @@ cp packaging/linux/print.it.service "$STAGE/usr/lib/systemd/user/"
 cp packaging/linux/uninstall.sh "$STAGE/usr/share/print.it/"
 chmod 755 "$STAGE/usr/share/print.it/uninstall.sh"
 cp packaging/linux/postinst "$STAGE/DEBIAN/"
+cp packaging/linux/preinst "$STAGE/DEBIAN/"
 cp packaging/linux/prerm "$STAGE/DEBIAN/"
-chmod 755 "$STAGE/DEBIAN/postinst" "$STAGE/DEBIAN/prerm"
+chmod 755 "$STAGE/DEBIAN/postinst" "$STAGE/DEBIAN/preinst" "$STAGE/DEBIAN/prerm"
 
 cat > "$STAGE/DEBIAN/control" <<EOF
 Package: print-it

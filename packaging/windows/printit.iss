@@ -1,6 +1,6 @@
 #define MyAppName "print.it"
 #ifndef MyAppVersion
-#define MyAppVersion "0.1.0"
+#define MyAppVersion "0.1.1"
 #endif
 #define MyAppPublisher "IdeYou"
 #define MyAppURL "https://github.com/ioisaque/print.it"
@@ -29,12 +29,31 @@ Source: "install-task.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "uninstall.ps1"; DestDir: "{app}"; Flags: ignoreversion
 
 [Run]
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""Get-Process -Name print.it -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep -Seconds 1"""; StatusMsg: "Parando print.it..."; Flags: runhidden waituntilterminated beforeinstall
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\install-task.ps1"" -InstallDir ""{app}"" -InstallUser ""{username}"""; StatusMsg: "Configurando inicializacao automatica..."; Flags: runhidden waituntilterminated
 Filename: "{app}\{#MyAppExeName}"; Description: "Iniciar print.it"; StatusMsg: "Iniciando print.it..."; Flags: nowait runascurrentuser skipifsilent
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\install-task.ps1"" -InstallDir ""{app}"" -VerifyOnly"; StatusMsg: "Verificando print.it..."; Flags: runhidden waituntilterminated
 
 [UninstallRun]
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\uninstall.ps1"""; Flags: runhidden waituntilterminated
+
+[Code]
+var
+  Upgrading: Boolean;
+
+function InitializeSetup(): Boolean;
+begin
+  Upgrading := IsUpgrade();
+  Result := True;
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if (CurStep = ssPostInstall) and Upgrading then
+  begin
+    MsgBox('print.it atualizado para {#MyAppVersion}.', mbInformation, MB_OK);
+  end;
+end;
 
 [Messages]
 FinishedLabel=print.it foi instalado.%n%nO agente ja deve estar rodando.%n%nConfigure a impressora no sistema de gestao.

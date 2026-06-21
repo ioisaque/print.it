@@ -36,7 +36,13 @@ launchctl bootstrap "gui/$USER_ID" "$PLIST"
 launchctl enable "gui/$USER_ID/com.printit.agent"
 launchctl kickstart -k "gui/$USER_ID/com.printit.agent"
 
+VERSION="$("$BINARY" --version 2>/dev/null || echo desconhecida)"
 echo ""
-echo "print.it instalado."
+if [ -f /tmp/printit-install-mode ]; then
+  rm -f /tmp/printit-install-mode
+  echo "print.it atualizado para $VERSION."
+else
+  echo "print.it instalado ($VERSION)."
+fi
 echo "Configure a impressora no sistema de gestao."
 echo "Se o agente nao iniciar, faca logout/login."

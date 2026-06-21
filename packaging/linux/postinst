@@ -10,8 +10,15 @@ if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-remov
   fi
 fi
 
-echo ""
-echo "print.it instalado."
-echo "Configure a impressora no sistema de gestao."
+if [ "$1" = "configure" ]; then
+  VERSION="$(/usr/bin/print.it --version 2>/dev/null || echo desconhecida)"
+  echo ""
+  if [ -n "${2:-}" ]; then
+    echo "print.it atualizado para $VERSION."
+  else
+    echo "print.it instalado ($VERSION)."
+  fi
+  echo "Configure a impressora no sistema de gestao."
+fi
 
 exit 0

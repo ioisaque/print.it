@@ -1,0 +1,17 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+  install|upgrade)
+    if command -v systemctl >/dev/null 2>&1; then
+      TARGET_USER="${SUDO_USER:-$USER}"
+      if [ -n "$TARGET_USER" ] && [ "$TARGET_USER" != "root" ]; then
+        su - "$TARGET_USER" -c "systemctl --user stop print.it.service" 2>/dev/null || true
+      fi
+    fi
+    pkill -x print.it 2>/dev/null || true
+    sleep 1
+    ;;
+esac
+
+exit 0

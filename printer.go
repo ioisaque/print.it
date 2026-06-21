@@ -371,12 +371,18 @@ func testPageLogoPNG() ([]byte, error) {
 		return nil, fmt.Errorf("logo sem paginas")
 	}
 
-	rgba, err := doc.ImageDPI(0, 120)
+	rgba, err := doc.ImageDPI(0, 203)
 	if err != nil {
 		return nil, err
 	}
 
-	return imageToGrayscalePNG(rgba)
+	bounds := rgba.Bounds()
+	white := image.NewRGBA(bounds)
+	draw.Draw(white, bounds, image.White, image.Point{}, draw.Src)
+	draw.Draw(white, bounds, rgba, bounds.Min, draw.Over)
+	cropped := trimImageBlankMargins(white)
+
+	return imageToGrayscalePNG(cropped)
 }
 
 func printTestPage(cfg Config) error {
@@ -390,8 +396,15 @@ func printTestPage(cfg Config) error {
 		Configured: true,
 	}, 2*time.Second, deepEnrichOptions)
 
+	logoPNG, err := testPageLogoPNG()
+	if err != nil {
+		return err
+	}
+	if err := printImageBytes(cfg, logoPNG, CutNone, TrimNever); err != nil {
+		return err
+	}
+
 	lines := []string{
-		"print.it",
 		"------------------------------",
 	}
 
@@ -417,16 +430,7 @@ func printTestPage(cfg Config) error {
 	lines = append(lines, fmt.Sprintf("Area imprimivel: %dmm", cfg.printableWidthMM()))
 	lines = append(lines, "", "Se voce leu isto,", "a conexao esta OK!", "")
 
-	if err := printText(cfg, strings.Join(lines, "\n"), "center", false, CutNone, TrimNever); err != nil {
-		return err
-	}
-
-	logoPNG, err := testPageLogoPNG()
-	if err != nil {
-		return err
-	}
-
-	return printImageBytes(cfg, logoPNG, CutPartial, TrimNever)
+	return printText(cfg, strings.Join(lines, "\n"), "center", false, CutPartial, TrimNever)
 }
 
 func printBarcode(cfg Config, barcodeType string, data string, label string, align string, cut CutMode) error {
@@ -577,6 +581,68 @@ func rowDarkRatio(img image.Image, y int) float64 {
 	}
 
 	return float64(dark) / float64(width)
+}
+
+func colDarkRatio(img image.Image, x int) float64 {
+	bounds := img.Bounds()
+	height := bounds.Dy()
+	if height == 0 || x < bounds.Min.X || x >= bounds.Max.X {
+		return 0
+	}
+
+	dark := 0
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		gray := color.GrayModel.Convert(img.At(x, y)).(color.Gray)
+		if gray.Y < blankPixelThreshold {
+			dark++
+		}
+	}
+
+	return float64(dark) / float64(height)
+}
+
+func trimImageBlankMargins(img image.Image) image.Image {
+	bounds := img.Bounds()
+	top := bounds.Max.Y
+	bottom := bounds.Min.Y - 1
+	left := bounds.Max.X
+	right := bounds.Min.X - 1
+
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		if rowDarkRatio(img, y) >= trimRowMinDensity {
+			top = y
+			break
+		}
+	}
+	for y := bounds.Max.Y - 1; y >= bounds.Min.Y; y-- {
+		if rowDarkRatio(img, y) >= trimRowMinDensity {
+			bottom = y
+			break
+		}
+	}
+	for x := bounds.Min.X; x < bounds.Max.X; x++ {
+		if colDarkRatio(img, x) >= trimRowMinDensity {
+			left = x
+			break
+		}
+	}
+	for x := bounds.Max.X - 1; x >= bounds.Min.X; x-- {
+		if colDarkRatio(img, x) >= trimRowMinDensity {
+			right = x
+			break
+		}
+	}
+
+	if top >= bounds.Max.Y || bottom < bounds.Min.Y || left >= bounds.Max.X || right < bounds.Min.X {
+		return image.NewRGBA(image.Rect(0, 0, 0, 0))
+	}
+
+	crop := image.Rect(left, top, right+1, bottom+1)
+	if sub, ok := img.(interface{ SubImage(image.Rectangle) image.Image }); ok {
+		return sub.SubImage(crop)
+	}
+
+	return img
 }
 
 func trimImageTrailingBlank(img image.Image) image.Image {
