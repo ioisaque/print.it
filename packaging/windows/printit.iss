@@ -1,6 +1,6 @@
 #define MyAppName "print.it"
 #ifndef MyAppVersion
-#define MyAppVersion "0.3.0"
+#define MyAppVersion "0.3.2"
 #endif
 #define MyAppPublisher "IdeYou"
 #define MyAppURL "https://github.com/ioisaque/print.it"
@@ -36,15 +36,3 @@ Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Fil
 
 [Messages]
 FinishedLabel=print.it foi instalado.%n%nConfigure a impressora no sistema de gestao.%n%nO agente iniciara automaticamente no proximo login.
-
-[Code]
-function InitializeSetup(): Boolean;
-begin
-  if not FileExists(ExpandConstant('{src}\..\..\dist\print.it-windows-amd64.exe')) then
-  begin
-    MsgBox('Binario dist/print.it-windows-amd64.exe nao encontrado. Execute scripts/build-all.sh antes.', mbError, MB_OK);
-    Result := False;
-  end
-  else
-    Result := True;
-end;
