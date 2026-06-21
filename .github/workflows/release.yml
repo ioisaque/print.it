@@ -146,6 +146,7 @@ jobs:
             echo "barcodes_api_key ausente em packaging/build.config.json" >&2
             exit 1
           fi
+          chmod +x packaging/embed-windows-icon.sh
           packaging/embed-windows-icon.sh
           go build -ldflags "-s -w -H=windowsgui ${PRINT_IT_LDFLAGS_BUILD}" -o dist/print.it-windows-amd64.exe .
           go version

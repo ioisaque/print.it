@@ -16,7 +16,7 @@ AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
 SetupIconFile=appicon.ico
-WizardSmallImageFile=appicon.png
+WizardSmallImageFile=wizard-icon.png
 DefaultDirName={autopf}\print.it
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
@@ -26,7 +26,7 @@ Compression=lzma2
 SolidCompression=yes
 ArchitecturesInstallIn64BitMode=x64
 PrivilegesRequired=admin
-UninstallDisplayIcon={app}\{#MyAppExeName}
+UninstallDisplayIcon={app}\delicon.ico
 ShowLanguageDialog=no
 
 #if SetupLanguage == "en"
@@ -39,6 +39,7 @@ Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortugue
 
 [Files]
 Source: "..\..\dist\print.it-windows-amd64.exe"; DestDir: "{app}"; DestName: "{#MyAppExeName}"; Flags: ignoreversion
+Source: "delicon.ico"; DestDir: "{app}"; Flags: ignoreversion
 Source: "install-task.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "uninstall.ps1"; DestDir: "{app}"; Flags: ignoreversion
 

@@ -76,3 +76,8 @@ button {
   font-family: inherit;
   font-size: inherit;
 }
+
+button svg,
+button img {
+  pointer-events: none;
+}

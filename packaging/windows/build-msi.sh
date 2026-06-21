@@ -15,6 +15,7 @@ if [ ! -f "$BINARY" ]; then
     exit 1
   fi
   eval "$(packaging/read-build-config.sh export)"
+  chmod +x packaging/embed-windows-icon.sh
   packaging/embed-windows-icon.sh
   CGO_ENABLED=1 go build -ldflags "-s -w -H=windowsgui ${PRINT_IT_LDFLAGS_BUILD}" -o "$BINARY" .
 fi
@@ -33,7 +34,28 @@ fi
 SETUP_LANG="$(packaging/read-build-config.sh setup-lang)"
 
 cp packaging/appicon.ico packaging/windows/appicon.ico
-cp packaging/appicon.png packaging/windows/appicon.png
+cp packaging/delicon.ico packaging/windows/delicon.ico
+
+if python3 -c "from PIL import Image" 2>/dev/null; then
+  python3 - <<'PY'
+from PIL import Image
+
+src = Image.open("packaging/appicon.png").convert("RGBA")
+size = 55
+padding = 10
+inner = size - 2 * padding
+w, h = src.size
+scale = min(inner / w, inner / h)
+nw, nh = max(1, int(w * scale)), max(1, int(h * scale))
+resized = src.resize((nw, nh), Image.LANCZOS)
+canvas = Image.new("RGBA", (size, size), (255, 255, 255, 0))
+canvas.paste(resized, ((size - nw) // 2, (size - nh) // 2), resized)
+canvas.save("packaging/windows/wizard-icon.png")
+PY
+elif [ ! -f packaging/windows/wizard-icon.png ]; then
+  echo "wizard-icon.png ausente e Pillow indisponivel para gerar" >&2
+  exit 1
+fi
 
 "$ISCC" "//DMyAppVersion=$VERSION" "//DSetupLanguage=$SETUP_LANG" packaging/windows/printit.iss
 

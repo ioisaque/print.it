@@ -1,21 +1,21 @@
 import { api } from "./api.js";
 import { onLangChange, t } from "./i18n.js";
 import {
-    applyPrefsToUI,
-    bindFormSubmit,
-    loadPrefs,
-    loadPrinterProfile,
-    readPrefsFromPopover,
-    refreshStatus,
-    saveDiscoveredPrinters,
-    savePrefs,
-    savePrinterProfile,
-    showPanel,
-    toast,
-    value,
+  applyPrefsToUI,
+  bindFormSubmit,
+  loadPrefs,
+  loadPrinterProfile,
+  readPrefsFromPopover,
+  refreshStatus,
+  saveDiscoveredPrinters,
+  savePrefs,
+  savePrinterProfile,
+  showPanel,
+  toast,
+  value,
 } from "./ui.js";
 
-const svgTestPrint = `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20 13.09V12a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7h9c0-3.31 2.69-6 6-6c.34 0 .67.04 1 .09M10 14H6v-2h4zm7-5H7V4h10zm5 10l-5 3v-6z"/></svg>`;
+const svgTestPrint = `<svg viewBox="0 0 512 512" fill="currentColor" aria-hidden="true"><path d="M0 0h512v512H0z" fill="none" /><path fill="currentColor" d="M234.667 362.667v-128h42.666v128zM256 213.333c11.782 0 21.333-9.551 21.333-21.333s-9.551-21.333-21.333-21.333s-21.333 9.551-21.333 21.333s9.551 21.333 21.333 21.333" /><path fill="currentColor" fill-rule="evenodd" d="M307.503 42.667H85.333v426.666h341.334V161.83zm-17.69 42.666L384 179.52v247.147H128V85.333z" clip-rule="evenodd" /></svg>`;
 
 const svgCheck = `<svg viewBox="0 0 32 27" fill="currentColor" aria-hidden="true"><path d="M26.99 0L10.13 17.17l-5.44-5.54L0 16.41L10.4 27l4.65-4.73l.04.04L32 5.1z"/></svg>`;
 
