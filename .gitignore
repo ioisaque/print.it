@@ -3,3 +3,4 @@ print.it
 config.json
 .DS_Store
 /tmp/
+dist/

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 )
 
@@ -35,26 +34,6 @@ func defaultConfig() Config {
 		PaperWidthMM: 80,
 		CorsOrigins:  []string{"*"},
 	}
-}
-
-func configFilePath() string {
-	if env := os.Getenv("PRINT_IT_CONFIG"); env != "" {
-		return env
-	}
-
-	if _, err := os.Stat("config.json"); err == nil {
-		return "config.json"
-	}
-
-	exe, err := os.Executable()
-	if err == nil {
-		dir := filepath.Dir(exe)
-		if dir != "" && dir != "." && !strings.Contains(dir, "/go-build") {
-			return filepath.Join(dir, "config.json")
-		}
-	}
-
-	return "config.json"
 }
 
 func loadConfig() error {
@@ -157,11 +136,16 @@ func normalizeConfigLocked() {
 }
 
 func saveConfigLocked() error {
+	path := configFilePath()
+	if err := ensureDir(filepath.Dir(path)); err != nil {
+		return err
+	}
+
 	data, err := json.MarshalIndent(config, "", "  ")
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(configFilePath(), data, 0o644)
+	return os.WriteFile(path, data, 0o644)
 }
 
 func (c Config) printerAddr() string {

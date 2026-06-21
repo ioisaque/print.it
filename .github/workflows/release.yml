@@ -1,0 +1,144 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-binaries:
+    name: Build ${{ matrix.goos }}-${{ matrix.goarch }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: darwin
+            goarch: arm64
+            ext: ""
+          - goos: darwin
+            goarch: amd64
+            ext: ""
+          - goos: linux
+            goarch: amd64
+            ext: ""
+          - goos: windows
+            goarch: amd64
+            ext: .exe
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          go mod tidy
+          mkdir -p dist
+          go build -ldflags "-s -w" -o "dist/print.it-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}" .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: binary-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/print.it-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}
+
+  package-macos-arm64:
+    needs: build-binaries
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: binary-darwin-arm64
+          path: dist
+      - name: Build pkg
+        run: |
+          chmod +x packaging/macos/build-pkg.sh
+          packaging/macos/build-pkg.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installer-macos-arm64
+          path: dist/print.it-*-macos-arm64.pkg
+
+  package-macos-amd64:
+    needs: build-binaries
+    runs-on: macos-13
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: binary-darwin-amd64
+          path: dist
+      - name: Build pkg
+        run: |
+          chmod +x packaging/macos/build-pkg.sh
+          packaging/macos/build-pkg.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installer-macos-amd64
+          path: dist/print.it-*-macos-amd64.pkg
+
+  package-linux:
+    needs: build-binaries
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: binary-linux-amd64
+          path: dist
+      - name: Build deb
+        run: |
+          chmod +x packaging/linux/build-deb.sh
+          packaging/linux/build-deb.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installer-linux-amd64
+          path: dist/print.it-*-linux-amd64.deb
+
+  package-windows:
+    needs: build-binaries
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: binary-windows-amd64
+          path: dist
+      - name: Install Inno Setup
+        run: choco install innosetup -y
+      - name: Build installer
+        shell: bash
+        run: |
+          export PATH="/c/Program Files (x86)/Inno Setup 6:$PATH"
+          chmod +x packaging/windows/build-msi.sh
+          packaging/windows/build-msi.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installer-windows-amd64
+          path: dist/print.it-*-windows-amd64.exe
+
+  release:
+    needs:
+      - package-macos-arm64
+      - package-macos-amd64
+      - package-linux
+      - package-windows
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+      - name: Flatten artifacts
+        run: |
+          mkdir -p dist
+          find release-assets -type f -name 'print.it-*' -exec cp -n {} dist/ \;
+          ls -lh dist
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true

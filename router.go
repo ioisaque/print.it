@@ -15,6 +15,7 @@ func newRouter() http.Handler {
 
 	mux.HandleFunc("GET /{$}", redirectToUI)
 	mux.HandleFunc("GET /printit", handlePrintitIndex)
+	mux.HandleFunc("GET /printit/health", handleHealth)
 	mux.HandleFunc("GET /printit/status", handleStatus)
 	mux.HandleFunc("PUT /printit/config", handlePutConfig)
 	mux.HandleFunc("GET /printit/discover", handleDiscover)
@@ -50,6 +51,7 @@ func handlePrintitIndex(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusOK, map[string]string{
 		"status": "/printit/status",
+		"health": "/printit/health",
 		"admin":  "/printit/",
 	})
 }

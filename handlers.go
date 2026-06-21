@@ -172,13 +172,21 @@ func parsePrintOptionsJSON(cutAfterPage, cutAfterDoc, trimBlank string, cut *boo
 	return opts
 }
 
+func handleHealth(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ok":      true,
+		"version": version,
+		"service": "print.it",
+	})
+}
+
 func handleStatus(w http.ResponseWriter, r *http.Request) {
 	cfg := getConfig()
 	cfg.BarcodesAPIKey = ""
 	writeJSON(w, http.StatusOK, map[string]any{
 		"status":  "ok",
 		"service": "print.it",
-		"version": "0.2.0",
+		"version": version,
 		"printer": cfg.printerAddr(),
 		"config":  cfg,
 	})

@@ -1,0 +1,13 @@
+[Unit]
+Description=print.it local printing agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/print.it
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target

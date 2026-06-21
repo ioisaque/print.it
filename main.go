@@ -7,6 +7,21 @@ import (
 )
 
 func main() {
+	if handleCLI() {
+		return
+	}
+
+	release, alreadyRunning := acquireSingleInstance()
+	if alreadyRunning {
+		log.Println("print.it ja esta em execucao")
+		return
+	}
+	defer release()
+
+	if err := setupRuntimeLogging(); err != nil {
+		log.Printf("aviso: log em arquivo indisponivel: %v", err)
+	}
+
 	if err := loadConfig(); err != nil {
 		log.Fatalf("config: %v", err)
 	}
@@ -22,10 +37,11 @@ func main() {
 		WriteTimeout:      120 * time.Second,
 	}
 
-	log.Printf("print.it rodando em http://%s/printit/", addr)
+	log.Printf("print.it %s rodando em http://%s/printit/", version, addr)
 	log.Printf("interface web: http://%s/ (redireciona para /printit/)", addr)
 	log.Printf("impressora: %s", cfg.printerAddr())
 	log.Printf("config: %s", configFilePath())
+	log.Printf("dados: %s", dataDir())
 
 	if err := server.ListenAndServe(); err != nil {
 		log.Fatal(err)

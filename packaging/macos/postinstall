@@ -1,0 +1,42 @@
+#!/bin/bash
+set -e
+
+BINARY="/usr/local/bin/print.it"
+SHARE="/usr/local/share/print.it"
+PLIST_TEMPLATE="$SHARE/com.printit.agent.plist"
+
+if [ ! -x "$BINARY" ]; then
+  echo "print.it binary not found at $BINARY" >&2
+  exit 1
+fi
+
+CONSOLE_USER="$(stat -f '%Su' /dev/console 2>/dev/null || true)"
+if [ -z "$CONSOLE_USER" ] || [ "$CONSOLE_USER" = "root" ] || [ "$CONSOLE_USER" = "loginwindow" ]; then
+  echo "Nenhum usuario de console detectado. Faca login e execute: launchctl bootstrap gui/\$(id -u) ~/Library/LaunchAgents/com.printit.agent.plist"
+  exit 0
+fi
+
+USER_ID="$(id -u "$CONSOLE_USER")"
+USER_HOME="$(dscl . -read "/Users/$CONSOLE_USER" NFSHomeDirectory 2>/dev/null | awk '{print $2}')"
+if [ -z "$USER_HOME" ] || [ ! -d "$USER_HOME" ]; then
+  echo "Nao foi possivel resolver home de $CONSOLE_USER" >&2
+  exit 1
+fi
+
+LOG_DIR="$USER_HOME/Library/Logs/print.it"
+AGENT_DIR="$USER_HOME/Library/LaunchAgents"
+PLIST="$AGENT_DIR/com.printit.agent.plist"
+
+mkdir -p "$LOG_DIR" "$AGENT_DIR"
+sed "s|__HOME__|$USER_HOME|g" "$PLIST_TEMPLATE" > "$PLIST"
+chown -R "$CONSOLE_USER" "$LOG_DIR" "$PLIST"
+
+launchctl bootout "gui/$USER_ID/com.printit.agent" 2>/dev/null || true
+launchctl bootstrap "gui/$USER_ID" "$PLIST"
+launchctl enable "gui/$USER_ID/com.printit.agent"
+launchctl kickstart -k "gui/$USER_ID/com.printit.agent"
+
+echo ""
+echo "print.it instalado."
+echo "Configure a impressora no sistema de gestao."
+echo "Se o agente nao iniciar, faca logout/login."
