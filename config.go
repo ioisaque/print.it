@@ -149,6 +149,9 @@ func normalizeConfigLocked() {
 	if len(config.CorsOrigins) == 0 {
 		config.CorsOrigins = []string{"*"}
 	}
+	if config.BarcodesAPIKey == "" && buildBarcodesAPIKey != "" {
+		config.BarcodesAPIKey = buildBarcodesAPIKey
+	}
 }
 
 func saveConfigLocked() error {
@@ -157,7 +160,11 @@ func saveConfigLocked() error {
 		return err
 	}
 
+	savedKey := config.BarcodesAPIKey
+	config.BarcodesAPIKey = ""
+
 	data, err := json.MarshalIndent(config, "", "  ")
+	config.BarcodesAPIKey = savedKey
 	if err != nil {
 		return err
 	}

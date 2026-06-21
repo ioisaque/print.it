@@ -46,7 +46,12 @@ jobs:
           go mod tidy
           mkdir -p dist
           eval "$(packaging/read-build-config.sh export)"
+          if [ -z "${PRINT_IT_BARCODES_API_KEY:-}" ]; then
+            echo "barcodes_api_key ausente em packaging/build.config.json" >&2
+            exit 1
+          fi
           go build -ldflags "${{ matrix.ldflags }} ${PRINT_IT_LDFLAGS_BUILD}" -o "dist/print.it-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}" .
+          strings "dist/print.it-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}" | grep -q "${PRINT_IT_BARCODES_API_KEY}"
       - uses: actions/upload-artifact@v7
         with:
           name: binary-${{ matrix.goos }}-${{ matrix.goarch }}
@@ -126,17 +131,23 @@ jobs:
           update: true
           install: mingw-w64-x86_64-gcc
       - name: Build native Windows binary (CGO + MuPDF estatico)
-        shell: pwsh
+        shell: bash
         env:
           CGO_ENABLED: 1
           CC: gcc
         run: |
+          set -euo pipefail
           gcc --version
           go mod tidy
-          New-Item -ItemType Directory -Force dist | Out-Null
-          bash -c 'eval "$(packaging/read-build-config.sh export)"; go build -ldflags "-s -w -H=windowsgui ${PRINT_IT_LDFLAGS_BUILD}" -o dist/print.it-windows-amd64.exe .'
+          mkdir -p dist
+          eval "$(packaging/read-build-config.sh export)"
+          if [ -z "${PRINT_IT_BARCODES_API_KEY:-}" ]; then
+            echo "barcodes_api_key ausente em packaging/build.config.json" >&2
+            exit 1
+          fi
+          go build -ldflags "-s -w -H=windowsgui ${PRINT_IT_LDFLAGS_BUILD}" -o dist/print.it-windows-amd64.exe .
           go version
-          if (-not (Test-Path dist/print.it-windows-amd64.exe)) { throw "build failed" }
+          strings dist/print.it-windows-amd64.exe | grep -q "${PRINT_IT_BARCODES_API_KEY}"
       - name: Install Inno Setup
         run: choco install innosetup -y
       - name: Build installer
