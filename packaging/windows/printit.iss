@@ -8,7 +8,6 @@
 #define MyAppPublisher "IdeYou"
 #define MyAppURL "https://github.com/ioisaque/print.it"
 #define MyAppExeName "print.it.exe"
-#define MyAppIcon "..\appicon.ico"
 
 [Setup]
 AppId={{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}
@@ -16,7 +15,8 @@ AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
-SetupIconFile={#MyAppIcon}
+SetupIconFile=appicon.ico
+WizardSmallImageFile=appicon.png
 DefaultDirName={autopf}\print.it
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes

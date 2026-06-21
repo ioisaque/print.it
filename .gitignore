@@ -5,3 +5,5 @@ config.json
 /tmp/
 dist/
 rsrc_windows_*.syso
+packaging/windows/appicon.ico
+packaging/windows/appicon.png

@@ -32,6 +32,9 @@ fi
 
 SETUP_LANG="$(packaging/read-build-config.sh setup-lang)"
 
+cp packaging/appicon.ico packaging/windows/appicon.ico
+cp packaging/appicon.png packaging/windows/appicon.png
+
 "$ISCC" "//DMyAppVersion=$VERSION" "//DSetupLanguage=$SETUP_LANG" packaging/windows/printit.iss
 
 echo ""
