@@ -1,6 +1,6 @@
 #define MyAppName "print.it"
 #ifndef MyAppVersion
-#define MyAppVersion "0.3.2"
+#define MyAppVersion "0.3.3"
 #endif
 #define MyAppPublisher "IdeYou"
 #define MyAppURL "https://github.com/ioisaque/print.it"
@@ -29,10 +29,10 @@ Source: "install-task.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "uninstall.ps1"; DestDir: "{app}"; Flags: ignoreversion
 
 [Run]
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\install-task.ps1"""; StatusMsg: "Configurando inicializacao automatica..."; Flags: runhidden waituntilterminated
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\install-task.ps1"" -InstallUser ""{username}"""; StatusMsg: "Configurando inicializacao automatica..."; Flags: runhidden waituntilterminated
 
 [UninstallRun]
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\uninstall.ps1"""; Flags: runhidden waituntilterminated
 
 [Messages]
-FinishedLabel=print.it foi instalado.%n%nConfigure a impressora no sistema de gestao.%n%nO agente iniciara automaticamente no proximo login.
+FinishedLabel=print.it foi instalado.%n%nO agente ja deve estar rodando.%n%nConfigure a impressora no sistema de gestao.

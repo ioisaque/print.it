@@ -21,18 +21,22 @@ jobs:
     strategy:
       matrix:
         include:
-          - goos: darwin
-            goarch: arm64
-            ext: ""
-          - goos: darwin
-            goarch: amd64
-            ext: ""
-          - goos: linux
-            goarch: amd64
-            ext: ""
           - goos: windows
             goarch: amd64
             ext: .exe
+            ldflags: "-s -w -H=windowsgui"
+          - goos: darwin
+            goarch: arm64
+            ext: ""
+            ldflags: "-s -w"
+          - goos: darwin
+            goarch: amd64
+            ext: ""
+            ldflags: "-s -w"
+          - goos: linux
+            goarch: amd64
+            ext: ""
+            ldflags: "-s -w"
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v6
@@ -45,7 +49,7 @@ jobs:
         run: |
           go mod tidy
           mkdir -p dist
-          go build -ldflags "-s -w" -o "dist/print.it-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}" .
+          go build -ldflags "${{ matrix.ldflags }}" -o "dist/print.it-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}" .
       - uses: actions/upload-artifact@v7
         with:
           name: binary-${{ matrix.goos }}-${{ matrix.goarch }}
