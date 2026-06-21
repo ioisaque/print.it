@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -188,12 +190,14 @@ func handleHealth(w http.ResponseWriter, r *http.Request) {
 func handleStatus(w http.ResponseWriter, r *http.Request) {
 	cfg := getConfig()
 	cfg.BarcodesAPIKey = ""
+	online := probePrinterReachable(cfg)
 	writeJSON(w, http.StatusOK, map[string]any{
-		"status":  "ok",
-		"service": "print.it",
-		"version": version,
-		"printer": cfg.printerAddr(),
-		"config":  cfg,
+		"status":         "ok",
+		"service":        "print.it",
+		"version":        version,
+		"printer":        cfg.printerAddr(),
+		"printer_online": online,
+		"config":         cfg,
 	})
 }
 
@@ -218,6 +222,16 @@ func handlePutConfig(w http.ResponseWriter, r *http.Request) {
 	cfg := getConfig()
 	if patch.PrinterHost != "" {
 		cfg.PrinterHost = patch.PrinterHost
+		if patch.PrinterMAC != "" {
+			cfg.PrinterMAC = normalizeMAC(patch.PrinterMAC)
+		} else {
+			ensureARP(cfg.PrinterHost, 400*time.Millisecond)
+			if mac := lookupMAC(cfg.PrinterHost); mac != "" {
+				cfg.PrinterMAC = normalizeMAC(mac)
+			}
+		}
+	} else if patch.PrinterMAC != "" {
+		cfg.PrinterMAC = normalizeMAC(patch.PrinterMAC)
 	}
 	if patch.PrinterPort > 0 {
 		cfg.PrinterPort = patch.PrinterPort
@@ -233,6 +247,9 @@ func handlePutConfig(w http.ResponseWriter, r *http.Request) {
 	}
 	if patch.PrintableWidthMM > 0 {
 		cfg.PrintableWidthMM = patch.PrintableWidthMM
+	}
+	if patch.PrintContrast > 0 {
+		cfg.PrintContrast = patch.PrintContrast
 	}
 	if patch.BarcodesAPIKey != "" {
 		cfg.BarcodesAPIKey = patch.BarcodesAPIKey
@@ -441,12 +458,15 @@ func handlePrintImage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cfg := getConfig()
+	log.Printf("print/imagem: recebido %d bytes, corte=%s, recorte=%s", len(imageData), opts.CutAfterDoc, opts.Trim)
 	if err := printImageBytes(cfg, imageData, opts.CutAfterDoc, opts.Trim); err != nil {
+		log.Printf("print/imagem: erro: %v", err)
 		writeError(w, http.StatusBadGateway, err.Error())
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	log.Printf("print/imagem: ok")
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "message": "imagem enviada"})
 }
 
 func handleFilePreview(w http.ResponseWriter, r *http.Request) {
@@ -468,7 +488,7 @@ func handleFilePreview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pngData, err := filePreviewPNG(data, header.Filename)
+	pngData, err := filePreviewPNG(getConfig(), data, header.Filename)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -528,14 +548,104 @@ func handleDiscover(w http.ResponseWriter, r *http.Request) {
 
 func handlePrintTest(w http.ResponseWriter, r *http.Request) {
 	cfg := getConfig()
-	if err := printTestPage(cfg); err != nil {
+
+	var req struct {
+		PrinterHost  string `json:"printer_host"`
+		PrinterPort  int    `json:"printer_port"`
+		Label        string `json:"label"`
+		Name         string `json:"name"`
+		Manufacturer string `json:"manufacturer"`
+		Model        string `json:"model"`
+		Serial       string `json:"serial"`
+		Hostname     string `json:"hostname"`
+		MAC          string `json:"mac"`
+		Description  string `json:"description"`
+	}
+	if r.Body != nil {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "corpo invalido")
+			return
+		}
+		if len(bytes.TrimSpace(body)) > 0 {
+			if err := json.Unmarshal(body, &req); err != nil {
+				writeError(w, http.StatusBadRequest, "json invalido")
+				return
+			}
+		}
+	}
+
+	if req.PrinterHost != "" {
+		cfg.PrinterHost = req.PrinterHost
+	}
+	if req.PrinterPort > 0 {
+		cfg.PrinterPort = req.PrinterPort
+	}
+
+	printer := DiscoveredPrinter{
+		Host:         cfg.PrinterHost,
+		Port:         cfg.PrinterPort,
+		Label:        req.Label,
+		Name:         req.Name,
+		Manufacturer: req.Manufacturer,
+		Model:        req.Model,
+		Serial:       req.Serial,
+		Hostname:     req.Hostname,
+		MAC:          req.MAC,
+		Description:  req.Description,
+	}
+	if printer.Port == 0 {
+		printer.Port = 9100
+	}
+
+	if err := printTestPage(cfg, printer); err != nil {
+		log.Printf("print/teste: erro: %v", err)
 		writeError(w, http.StatusBadGateway, err.Error())
 		return
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{
 		"status":  "ok",
-		"message": fmt.Sprintf("pagina de teste enviada para %s", cfg.printerAddr()),
+		"message": fmt.Sprintf("pagina de teste enviada para %s", getConfig().printerAddr()),
+	})
+}
+
+func handlePrinterReset(w http.ResponseWriter, r *http.Request) {
+	cfg := getConfig()
+
+	var req struct {
+		PrinterHost string `json:"printer_host"`
+		PrinterPort int    `json:"printer_port"`
+	}
+	if r.Body != nil {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "corpo invalido")
+			return
+		}
+		if len(bytes.TrimSpace(body)) > 0 {
+			if err := json.Unmarshal(body, &req); err != nil {
+				writeError(w, http.StatusBadRequest, "json invalido")
+				return
+			}
+		}
+	}
+
+	if req.PrinterHost != "" {
+		cfg.PrinterHost = req.PrinterHost
+	}
+	if req.PrinterPort > 0 {
+		cfg.PrinterPort = req.PrinterPort
+	}
+
+	if err := resetPrinter(cfg); err != nil {
+		writeError(w, http.StatusBadGateway, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{
+		"status":  "ok",
+		"message": fmt.Sprintf("fila limpa em %s", cfg.printerAddr()),
 	})
 }
 

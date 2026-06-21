@@ -7,12 +7,21 @@ import {
     loadPrinterProfile,
     readPrefsFromPopover,
     refreshStatus,
+    saveDiscoveredPrinters,
     savePrefs,
     savePrinterProfile,
     showPanel,
     toast,
     value,
 } from "./ui.js";
+
+const svgTestPrint = `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20 13.09V12a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7h9c0-3.31 2.69-6 6-6c.34 0 .67.04 1 .09M10 14H6v-2h4zm7-5H7V4h10zm5 10l-5 3v-6z"/></svg>`;
+
+const svgCheck = `<svg viewBox="0 0 32 27" fill="currentColor" aria-hidden="true"><path d="M26.99 0L10.13 17.17l-5.44-5.54L0 16.41L10.4 27l4.65-4.73l.04.04L32 5.1z"/></svg>`;
+
+const svgSwap = `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21.66 10.37a.6.6 0 0 0 .07-.19l.75-4a1 1 0 0 0-2-.36l-.37 2a9.22 9.22 0 0 0-16.58.84a1 1 0 0 0 .55 1.3a1 1 0 0 0 1.31-.55A7.08 7.08 0 0 1 12.07 5a7.17 7.17 0 0 1 6.24 3.58l-1.65-.27a1 1 0 1 0-.32 2l4.25.71h.16a.9.9 0 0 0 .34-.06a.3.3 0 0 0 .1-.06a.8.8 0 0 0 .2-.11l.08-.1a1 1 0 0 0 .14-.16a.6.6 0 0 0 .05-.16m-1.78 3.7a1 1 0 0 0-1.31.56A7.08 7.08 0 0 1 11.93 19a7.17 7.17 0 0 1-6.24-3.58l1.65.27h.16a1 1 0 0 0 .16-2L3.41 13a.9.9 0 0 0-.33 0H3a1.2 1.2 0 0 0-.32.14a1 1 0 0 0-.18.18l-.09.1a1 1 0 0 0-.07.19a.4.4 0 0 0-.07.17l-.75 4a1 1 0 0 0 .8 1.22h.18a1 1 0 0 0 1-.82l.37-2a9.22 9.22 0 0 0 16.58-.83a1 1 0 0 0-.57-1.28"/></svg>`;
+
+const svgClearQueue = `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10 10-4.47 10-10S17.53 2 12 2zm4.3 12.3a1 1 0 0 1-1.41 1.41L12 13.41l-2.89 2.9a1 1 0 0 1-1.41-1.41L10.59 12 7.7 9.11a1 1 0 0 1 1.41-1.41L12 10.59l2.89-2.89a1 1 0 0 1 1.41 1.41L13.41 12l2.89 2.3z"/></svg>`;
 
 function escapeHtml(text) {
   return String(text)
@@ -42,8 +51,19 @@ function renderPrinterItem(p, index) {
         <strong>${title}</strong>
         ${details.map((line) => `<span class="printer-meta">${escapeHtml(line)}</span>`).join("")}
       </div>
-      <button type="button" class="btn secondary" data-host="${p.host}" data-port="${p.port}">${escapeHtml(t("printer.use"))}</button>
+      <div class="printer-item-actions">
+        <button type="button" class="btn-icon-action" data-action="test" data-host="${p.host}" data-port="${p.port}" title="${escapeHtml(t("printer.testPrinter"))}" aria-label="${escapeHtml(t("printer.testPrinter"))}">
+          ${svgTestPrint}
+        </button>
+        <button type="button" class="btn-icon-action" data-action="select" data-host="${p.host}" data-port="${p.port}" title="${escapeHtml(t("printer.select"))}" aria-label="${escapeHtml(t("printer.select"))}">
+          ${svgCheck}
+        </button>
+      </div>
     </div>`;
+}
+
+function renderPrinterListLoading(deep) {
+  return `<div class="printer-list-loading"><span class="spinner" aria-hidden="true"></span><p class="empty">${escapeHtml(deep ? t("printer.deepScanning") : t("printer.discoveringList"))}</p></div>`;
 }
 
 function renderProfileDetails(profile) {
@@ -98,26 +118,57 @@ async function persistPrefs(prefs) {
 
   await api.config.put({
     paper_width_mm: prefs.paper_width_mm,
+    print_contrast: prefs.print_contrast || 100,
     trim_trailing_blank: prefs.trim_blank !== "never",
   });
 }
 
+function printerProfileFromDiscovery(p) {
+  return {
+    host: p.host,
+    port: p.port || 9100,
+    label: p.label || p.name || "",
+    name: p.name || "",
+    manufacturer: p.manufacturer || "",
+    model: p.model || "",
+    serial: p.serial || "",
+    hostname: p.hostname || "",
+    mac: p.mac || "",
+    mac_vendor: p.mac_vendor || "",
+    description: p.description || "",
+  };
+}
+
+function testPrintPayload(host, port, profile) {
+  const p = profile || {};
+  return {
+    printer_host: host || p.host || "",
+    printer_port: port || p.port || 9100,
+    label: p.label || "",
+    name: p.name || "",
+    manufacturer: p.manufacturer || "",
+    model: p.model || "",
+    serial: p.serial || "",
+    hostname: p.hostname || "",
+    mac: p.mac || "",
+    description: p.description || "",
+  };
+}
+
 async function selectPrinter(host, port, printerData = {}) {
-  await api.config.put({
+  const saved = await api.config.put({
     printer_host: host,
     printer_port: port,
+    printer_mac: printerData.mac || "",
   });
 
-  const profile = {
-    host,
-    port,
+  const profile = printerProfileFromDiscovery({
+    ...printerData,
+    host: saved.printer_host || host,
+    port: saved.printer_port || port,
+    mac: saved.printer_mac || printerData.mac || "",
     label: printerData.label || printerData.name || t("printer.connected"),
-    manufacturer: printerData.manufacturer || "",
-    model: printerData.model || "",
-    serial: printerData.serial || "",
-    mac: printerData.mac || "",
-    mac_vendor: printerData.mac_vendor || "",
-  };
+  });
 
   savePrinterProfile(profile);
   await loadConfigForm();
@@ -127,14 +178,47 @@ async function selectPrinter(host, port, printerData = {}) {
   toast(t("toast.printerConnected"));
 }
 
+async function runResetPrinter(host, port) {
+  const body = {};
+  if (host) body.printer_host = host;
+  if (port) body.printer_port = port;
+  const data = await api.reset(body);
+  toast(data.message || t("toast.resetSent"));
+}
+
+async function runTestPrint(host, port, profile) {
+  const body = testPrintPayload(host, port, profile || loadPrinterProfile());
+  const data = await api.test(body);
+  toast(data.message || t("toast.testSent"));
+}
+
+function bindPrinterListActions(list, printers) {
+  list.querySelectorAll("button[data-action]").forEach((b) => {
+    b.addEventListener("click", async () => {
+      const host = b.dataset.host;
+      const port = parseInt(b.dataset.port, 10);
+      try {
+        if (b.dataset.action === "select") {
+          const printer = printers.find((p) => p.host === host) || {};
+          await selectPrinter(host, port, printer);
+          return;
+        }
+        const printer = printers.find((p) => p.host === host) || {};
+        await runTestPrint(host, port, printerProfileFromDiscovery(printer));
+      } catch (err) {
+        toast(err.message, false);
+      }
+    });
+  });
+}
+
 async function runDiscover({ deep = false } = {}) {
-  const btn = document.getElementById(deep ? "btnDiscoverDeep" : "btnDiscover");
+  const btn = document.getElementById("btnDiscoverDeep");
   const list = document.getElementById("printerList");
-  const defaultLabel = deep ? t("printer.deepScan") : t("printer.discover");
+  const defaultLabel = t("printer.deepScan");
 
   btn.disabled = true;
-  btn.textContent = deep ? "..." : t("printer.discovering");
-  list.innerHTML = `<p class="empty">${escapeHtml(deep ? t("printer.deepScanning") : t("printer.discoveringList"))}</p>`;
+  list.innerHTML = renderPrinterListLoading(deep);
 
   try {
     const data = await api.discover(deep);
@@ -146,17 +230,8 @@ async function runDiscover({ deep = false } = {}) {
     }
 
     list.innerHTML = data.printers.map((p, index) => renderPrinterItem(p, index)).join("");
-
-    list.querySelectorAll("button[data-host]").forEach((b) => {
-      b.addEventListener("click", async () => {
-        try {
-          const printer = data.printers.find((p) => p.host === b.dataset.host) || {};
-          await selectPrinter(b.dataset.host, parseInt(b.dataset.port, 10), printer);
-        } catch (err) {
-          toast(err.message, false);
-        }
-      });
-    });
+    saveDiscoveredPrinters(data.printers);
+    bindPrinterListActions(list, data.printers);
 
     toast(t("printer.foundCount", { count: data.count }));
   } catch (err) {
@@ -169,6 +244,10 @@ async function runDiscover({ deep = false } = {}) {
 }
 
 export function initPrinter() {
+  document.getElementById("btnTestPrint").insertAdjacentHTML("afterbegin", svgTestPrint);
+  document.getElementById("btnResetPrinter").insertAdjacentHTML("afterbegin", svgClearQueue);
+  document.getElementById("btnChangePrinter").innerHTML = svgSwap;
+
   document.getElementById("printerProfileBtn").addEventListener("click", (e) => {
     e.stopPropagation();
     togglePopover();
@@ -185,6 +264,30 @@ export function initPrinter() {
 
   document.getElementById("btnChangePrinter").addEventListener("click", () => {
     showPopoverView(false);
+    runDiscover({ deep: false });
+  });
+
+  document.getElementById("btnTestPrint").addEventListener("click", async () => {
+    try {
+      await runTestPrint();
+    } catch (err) {
+      toast(err.message, false);
+    } finally {
+      setTimeout(() => refreshStatus(api), 2000);
+    }
+  });
+
+  document.getElementById("btnResetPrinter").addEventListener("click", async () => {
+    const btn = document.getElementById("btnResetPrinter");
+    btn.disabled = true;
+    try {
+      await runResetPrinter();
+    } catch (err) {
+      toast(err.message, false);
+    } finally {
+      btn.disabled = false;
+      setTimeout(() => refreshStatus(api), 2000);
+    }
   });
 
   document.getElementById("btnOpenAdvanced").addEventListener("click", () => {
@@ -192,10 +295,9 @@ export function initPrinter() {
     showPanel("advanced");
   });
 
-  document.getElementById("btnDiscover").addEventListener("click", () => runDiscover({ deep: false }));
   document.getElementById("btnDiscoverDeep").addEventListener("click", () => runDiscover({ deep: true }));
 
-  ["prefPaper", "prefCutPage", "prefCutDoc", "prefTrimBlank"].forEach((id) => {
+  ["prefPaper", "prefCutPage", "prefCutDoc", "prefTrimBlank", "prefContrast"].forEach((id) => {
     document.getElementById(id)?.addEventListener("change", async () => {
       try {
         await persistPrefs(readPrefsFromPopover());
@@ -207,6 +309,7 @@ export function initPrinter() {
 
   bindFormSubmit("btnSaveConfig", async () => {
     const prefs = loadPrefs();
+    const profile = loadPrinterProfile();
     prefs.paper_width_mm = parseInt(value("cfgPaper"), 10);
     prefs.printable_width_mm = parseInt(value("cfgPrintable"), 10) || 0;
     savePrefs(prefs);
@@ -214,12 +317,13 @@ export function initPrinter() {
     await api.config.put({
       printer_host: value("cfgHost").trim(),
       printer_port: parseInt(value("cfgPort"), 10) || 9100,
+      printer_mac: profile?.mac || "",
       paper_width_mm: prefs.paper_width_mm,
       printable_width_mm: prefs.printable_width_mm,
+      print_contrast: prefs.print_contrast || 100,
       trim_trailing_blank: prefs.trim_blank !== "never",
     });
 
-    const profile = loadPrinterProfile();
     if (profile) {
       savePrinterProfile({
         ...profile,
@@ -231,11 +335,6 @@ export function initPrinter() {
     applyPrefsToUI();
     toast(t("toast.configSaved"));
     refreshStatus(api);
-  });
-
-  bindFormSubmit("btnTest", async () => {
-    const data = await api.test();
-    toast(data.message || t("toast.testSent"));
   });
 
   onLangChange(() => {
@@ -256,6 +355,10 @@ export async function loadConfigForm() {
   document.getElementById("cfgPaper").value = String(prefs.paper_width_mm || c.paper_width_mm || 80);
   document.getElementById("cfgPrintable").value = prefs.printable_width_mm || c.printable_width_mm || "";
 
+  if (c.print_contrast > 0) {
+    prefs.print_contrast = c.print_contrast;
+    savePrefs(prefs);
+  }
   applyPrefsToUI();
 
   const profile = loadPrinterProfile();

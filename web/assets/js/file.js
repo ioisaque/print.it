@@ -1,6 +1,6 @@
 import { api } from "./api.js";
 import { t } from "./i18n.js";
-import { bindFormSubmit, readPrintOptions, toast } from "./ui.js";
+import { applyPreviewAlign, bindFormSubmit, readPrintOptions, toast, value } from "./ui.js";
 
 let filePreviewUrl = "";
 
@@ -46,11 +46,8 @@ function showPreviewView() {
 
 function resetPreviewMedia() {
   const img = document.getElementById("filePreviewImg");
-  const pdf = document.getElementById("filePreviewPdf");
   img.hidden = true;
   img.removeAttribute("src");
-  pdf.hidden = true;
-  pdf.removeAttribute("src");
 }
 
 function clearFilePreview() {
@@ -64,7 +61,7 @@ function clearFilePreview() {
   showDropzone();
 }
 
-function showFilePreview(file) {
+async function showFilePreview(file) {
   if (!file?.size) {
     toast(t("toast.fileEmpty"), false);
     return;
@@ -75,19 +72,27 @@ function showFilePreview(file) {
   }
 
   resetPreviewMedia();
-  filePreviewUrl = URL.createObjectURL(file);
 
-  if (isPdfFile(file)) {
-    const pdf = document.getElementById("filePreviewPdf");
-    pdf.src = filePreviewUrl;
-    pdf.hidden = false;
-  } else {
+  const fd = new FormData();
+  fd.append("file", file);
+
+  try {
+    const res = await api.preview(fd);
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      throw new Error(data?.error || res.statusText);
+    }
+    const blob = await res.blob();
+    filePreviewUrl = URL.createObjectURL(blob);
     const img = document.getElementById("filePreviewImg");
     img.src = filePreviewUrl;
     img.hidden = false;
+    applyPreviewAlign(value("textAlign"));
+    showPreviewView();
+  } catch (err) {
+    toast(err.message || t("toast.previewFailed"), false);
+    clearFilePreview();
   }
-
-  showPreviewView();
 }
 
 function handleSelectedFile(file) {

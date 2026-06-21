@@ -1,7 +1,9 @@
+import { api } from "./api.js";
 import { t } from "./i18n.js";
 
 const PREFS_KEY = "printit.prefs";
 const PROFILE_KEY = "printit.printer";
+const DISCOVER_KEY = "printit.discovered";
 
 const defaultPrefs = {
   cut_after_page: "none",
@@ -9,6 +11,7 @@ const defaultPrefs = {
   trim_blank: "never",
   paper_width_mm: 80,
   printable_width_mm: 0,
+  print_contrast: 100,
   text_align: "left",
 };
 
@@ -37,7 +40,7 @@ export function savePrefs(prefs) {
 
 export function loadPrinterProfile() {
   try {
-    return JSON.parse(localStorage.getItem(PROFILE_KEY) || "null");
+    return JSON.parse(sessionStorage.getItem(PROFILE_KEY) || "null");
   } catch {
     return null;
   }
@@ -45,9 +48,21 @@ export function loadPrinterProfile() {
 
 export function savePrinterProfile(profile) {
   if (profile) {
-    localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+    sessionStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
   } else {
-    localStorage.removeItem(PROFILE_KEY);
+    sessionStorage.removeItem(PROFILE_KEY);
+  }
+}
+
+export function saveDiscoveredPrinters(printers) {
+  sessionStorage.setItem(DISCOVER_KEY, JSON.stringify(printers));
+}
+
+export function loadDiscoveredPrinters() {
+  try {
+    return JSON.parse(sessionStorage.getItem(DISCOVER_KEY) || "[]");
+  } catch {
+    return [];
   }
 }
 
@@ -57,6 +72,7 @@ export function applyPrefsToUI() {
   const prefCutPage = document.getElementById("prefCutPage");
   const prefCutDoc = document.getElementById("prefCutDoc");
   const prefTrimBlank = document.getElementById("prefTrimBlank");
+  const prefContrast = document.getElementById("prefContrast");
   const cfgPaper = document.getElementById("cfgPaper");
   const textAlign = document.getElementById("textAlign");
 
@@ -64,15 +80,24 @@ export function applyPrefsToUI() {
   if (prefCutPage) prefCutPage.value = prefs.cut_after_page || "none";
   if (prefCutDoc) prefCutDoc.value = prefs.cut_after_document || "partial";
   if (prefTrimBlank) prefTrimBlank.value = prefs.trim_blank || "never";
+  if (prefContrast) prefContrast.value = String(prefs.print_contrast || 100);
   if (cfgPaper) cfgPaper.value = String(prefs.paper_width_mm || 80);
   if (textAlign && prefs.text_align) {
     textAlign.value = prefs.text_align;
     document.querySelectorAll(".format-btn[data-align]").forEach((btn) => {
       btn.classList.toggle("active", btn.dataset.align === prefs.text_align);
     });
+    applyPreviewAlign(prefs.text_align);
   }
 
   resyncThermalPreviews();
+}
+
+export function applyPreviewAlign(align) {
+  const resolved = align || document.getElementById("textAlign")?.value || "left";
+  ["bcPreviewBox", "qrPreviewBox", "filePreviewPaper"].forEach((id) => {
+    document.getElementById(id)?.style.setProperty("text-align", resolved);
+  });
 }
 
 export function readPrintOptions() {
@@ -90,6 +115,7 @@ export function readPrefsFromPopover() {
     cut_after_document: document.getElementById("prefCutDoc")?.value || "partial",
     trim_blank: document.getElementById("prefTrimBlank")?.value || "never",
     paper_width_mm: parseInt(document.getElementById("prefPaper")?.value, 10) || 80,
+    print_contrast: parseInt(document.getElementById("prefContrast")?.value, 10) || 100,
   };
 }
 
@@ -140,13 +166,13 @@ export function initPrintTypes() {
   if (active) showPrintButton(active.dataset.printType);
 }
 
-export async function refreshStatus(api) {
+export async function refreshStatus(apiClient = api) {
   const icon = document.getElementById("printerIcon");
   const label = document.getElementById("printerProfileLabel");
   const profile = loadPrinterProfile();
 
   try {
-    const data = await api.status();
+    const data = await apiClient.status();
     const host = data.config?.printer_host;
 
     icon?.classList.remove("idle", "ok", "err");
@@ -157,12 +183,21 @@ export async function refreshStatus(api) {
       return;
     }
 
-    icon?.classList.add("ok");
+    if (data.printer_online) {
+      icon?.classList.add("ok");
+      if (profile?.host === host && profile?.label) {
+        label.textContent = profile.label;
+      } else {
+        label.textContent = t("printer.connected");
+      }
+      return;
+    }
 
+    icon?.classList.add("err");
     if (profile?.host === host && profile?.label) {
-      label.textContent = profile.label;
+      label.textContent = `${profile.label} (${t("printer.offline")})`;
     } else {
-      label.textContent = t("printer.connected");
+      label.textContent = t("printer.offline");
     }
   } catch {
     icon?.classList.remove("idle", "ok", "err");
@@ -172,15 +207,25 @@ export async function refreshStatus(api) {
 }
 
 export function bindFormSubmit(buttonId, handler) {
-  document.getElementById(buttonId).addEventListener("click", async () => {
-    const btn = document.getElementById(buttonId);
+  const btn = document.getElementById(buttonId);
+  if (!btn) return;
+
+  btn.addEventListener("click", async () => {
+    if (btn.disabled) return;
     btn.disabled = true;
+    const i18nKey = btn.dataset.i18n;
+    const originalLabel = i18nKey ? t(i18nKey) : btn.textContent;
+    btn.textContent = t("print.sending");
+    btn.setAttribute("aria-busy", "true");
     try {
       await handler();
     } catch (err) {
       toast(err.message || t("toast.error"), false);
     } finally {
+      btn.textContent = originalLabel;
+      btn.removeAttribute("aria-busy");
       btn.disabled = false;
+      setTimeout(() => refreshStatus(api), 2000);
     }
   });
 }

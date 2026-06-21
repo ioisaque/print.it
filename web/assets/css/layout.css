@@ -209,6 +209,13 @@
   margin-bottom: 0.5rem;
 }
 
+.popover-profile-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
 .popover-address {
   font-size: 0.85rem;
   font-weight: 600;
@@ -244,6 +251,7 @@
 .btn-icon-swap svg {
   width: 18px;
   height: 18px;
+  display: block;
 }
 
 .popover-advanced-btn {
@@ -349,8 +357,40 @@ button.btn svg {
 }
 
 #popoverConnectView {
-  position: relative;
-  padding-bottom: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  min-height: 180px;
+}
+
+#popoverConnectView[hidden],
+#popoverProfileView[hidden] {
+  display: none !important;
+}
+
+.popover-connect-footer {
+  margin-top: auto;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-border);
+  text-align: center;
+}
+
+.btn-deep-scan {
+  border: none;
+  background: transparent;
+  color: var(--color-muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 0.35rem 0.5rem;
+  text-decoration: underline;
+}
+
+.btn-deep-scan:hover:not(:disabled) {
+  color: var(--color-primary);
+}
+
+.btn-deep-scan:disabled {
+  opacity: 0.6;
+  cursor: wait;
 }
 
 .dot {
@@ -619,10 +659,8 @@ nav.tabs button.active {
   min-height: 360px;
 }
 
-.file-preview-paper embed {
-  width: 100%;
-  height: 480px;
-  max-height: 520px;
+.file-preview-paper img {
+  max-width: 100%;
 }
 
 .file-change-btn {

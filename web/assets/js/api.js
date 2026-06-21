@@ -1,8 +1,28 @@
+import { t } from "./i18n.js";
+
 const ORIGIN = window.location.origin;
 const PRINTIT = `${ORIGIN}/printit`;
+const PRINT_TIMEOUT_MS = 120000;
 
-async function request(url, options = {}) {
-  const response = await fetch(url, options);
+async function request(url, options = {}, timeoutMs = 0) {
+  const controller = timeoutMs > 0 ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+
+  let response;
+  try {
+    response = await fetch(url, {
+      ...options,
+      ...(controller ? { signal: controller.signal } : {}),
+    });
+  } catch (err) {
+    if (err.name === "AbortError") {
+      throw new Error(t("toast.printTimeout"));
+    }
+    throw err;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+
   let data = null;
   const contentType = response.headers.get("content-type") || "";
   if (contentType.includes("application/json")) {
@@ -35,8 +55,27 @@ export const api = {
     return request(`${PRINTIT}/discover${query}`);
   },
 
-  test() {
-    return request(`${PRINTIT}/test`, { method: "POST" });
+  test(body = {}) {
+    return request(`${PRINTIT}/test`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  },
+
+  reset(body = {}) {
+    return request(`${PRINTIT}/reset`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  },
+
+  preview(formData) {
+    return fetch(`${PRINTIT}/preview`, {
+      method: "POST",
+      body: formData,
+    });
   },
 
   text: {
@@ -45,7 +84,7 @@ export const api = {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
-      });
+      }, PRINT_TIMEOUT_MS);
     },
   },
 
@@ -54,7 +93,7 @@ export const api = {
       return request(`${PRINTIT}/pdf`, {
         method: "POST",
         body: formData,
-      });
+      }, PRINT_TIMEOUT_MS);
     },
   },
 
@@ -63,7 +102,7 @@ export const api = {
       return request(`${PRINTIT}/image`, {
         method: "POST",
         body: formData,
-      });
+      }, PRINT_TIMEOUT_MS);
     },
   },
 
@@ -73,7 +112,7 @@ export const api = {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
-      });
+      }, PRINT_TIMEOUT_MS);
     },
   },
 
@@ -83,7 +122,7 @@ export const api = {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
-      });
+      }, PRINT_TIMEOUT_MS);
     },
   },
 };

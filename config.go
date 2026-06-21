@@ -11,10 +11,12 @@ import (
 type Config struct {
 	PrinterHost  string   `json:"printer_host"`
 	PrinterPort  int      `json:"printer_port"`
+	PrinterMAC   string   `json:"printer_mac,omitempty"`
 	ListenHost   string   `json:"listen_host"`
 	ListenPort   int      `json:"listen_port"`
 	PaperWidthMM       int      `json:"paper_width_mm"`
 	PrintableWidthMM   int      `json:"printable_width_mm"`
+	PrintContrast      int      `json:"print_contrast"`
 	TrimTrailingBlank  bool     `json:"trim_trailing_blank"`
 	BarcodesAPIKey     string   `json:"barcodes_api_key"`
 	CorsOrigins        []string `json:"cors_origins"`
@@ -32,6 +34,7 @@ func defaultConfig() Config {
 		ListenHost:   "127.0.0.1",
 		ListenPort:   9280,
 		PaperWidthMM: 80,
+		PrintContrast: 100,
 		CorsOrigins:  []string{"*"},
 	}
 	if buildBarcodesAPIKey != "" {
@@ -78,6 +81,9 @@ func updateConfig(patch Config) (Config, error) {
 	if patch.PrinterPort > 0 {
 		config.PrinterPort = patch.PrinterPort
 	}
+	if patch.PrinterMAC != "" {
+		config.PrinterMAC = normalizeMAC(patch.PrinterMAC)
+	}
 	if patch.ListenHost != "" {
 		config.ListenHost = patch.ListenHost
 	}
@@ -89,6 +95,9 @@ func updateConfig(patch Config) (Config, error) {
 	}
 	if patch.PrintableWidthMM > 0 {
 		config.PrintableWidthMM = patch.PrintableWidthMM
+	}
+	if patch.PrintContrast > 0 {
+		config.PrintContrast = patch.PrintContrast
 	}
 	if patch.BarcodesAPIKey != "" {
 		config.BarcodesAPIKey = patch.BarcodesAPIKey
@@ -133,6 +142,9 @@ func normalizeConfigLocked() {
 	}
 	if config.PaperWidthMM == 0 {
 		config.PaperWidthMM = 80
+	}
+	if config.PrintContrast <= 0 {
+		config.PrintContrast = 100
 	}
 	if len(config.CorsOrigins) == 0 {
 		config.CorsOrigins = []string{"*"}

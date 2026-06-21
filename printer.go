@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"encoding/base64"
 	"fmt"
 	"image"
@@ -28,6 +27,31 @@ func dialPrinter(cfg Config) (net.Conn, error) {
 		return nil, fmt.Errorf("nao foi possivel conectar em %s: %w", cfg.printerAddr(), err)
 	}
 	return conn, nil
+}
+
+func probePrinterReachable(cfg Config) bool {
+	if strings.TrimSpace(cfg.PrinterHost) == "" {
+		return false
+	}
+	conn, err := net.DialTimeout("tcp", cfg.printerAddr(), 2*time.Second)
+	if err != nil {
+		return false
+	}
+	conn.Close()
+	return true
+}
+
+func resetPrinter(cfg Config) error {
+	conn, err := dialPrinter(cfg)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	if _, err := conn.Write([]byte{0x18, 0x1B, '@'}); err != nil {
+		return err
+	}
+	return escpos.NewPrinter(conn).FeedLines(2)
 }
 
 type CutMode string
@@ -121,7 +145,10 @@ func escposImageConfig(cfg Config) *escposimg.Config {
 	}
 }
 
-func imageToGrayscalePNG(img image.Image) ([]byte, error) {
+func imageToGrayscalePNG(img image.Image, contrast int) ([]byte, error) {
+	if contrast > 0 && contrast != 100 {
+		img = adjustImageContrast(img, contrast)
+	}
 	gray := image.NewGray(img.Bounds())
 	draw.Draw(gray, img.Bounds(), img, img.Bounds().Min, draw.Src)
 
@@ -132,7 +159,60 @@ func imageToGrayscalePNG(img image.Image) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func filePreviewPNG(data []byte, filename string) ([]byte, error) {
+func adjustImageContrast(img image.Image, contrast int) image.Image {
+	if contrast <= 0 || contrast == 100 {
+		return img
+	}
+
+	factor := float64(contrast) / 100
+	bounds := img.Bounds()
+	out := image.NewGray(bounds)
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			g := color.GrayModel.Convert(img.At(x, y)).(color.Gray)
+			v := (float64(g.Y)-128)*factor + 128
+			if v < 0 {
+				v = 0
+			} else if v > 255 {
+				v = 255
+			}
+			out.SetGray(x, y, color.Gray{Y: uint8(v + 0.5)})
+		}
+	}
+	return out
+}
+
+func contrastProcessedImagePath(imagePath string, contrast int) (string, error) {
+	if contrast <= 0 || contrast == 100 {
+		return imagePath, nil
+	}
+
+	data, err := os.ReadFile(imagePath)
+	if err != nil {
+		return "", err
+	}
+
+	img, _, err := image.Decode(bytes.NewReader(data))
+	if err != nil {
+		return "", fmt.Errorf("imagem invalida: %w", err)
+	}
+
+	tmp, err := os.CreateTemp("", "printit-contrast-*.png")
+	if err != nil {
+		return "", err
+	}
+	path := tmp.Name()
+	if err := png.Encode(tmp, adjustImageContrast(img, contrast)); err != nil {
+		tmp.Close()
+		os.Remove(path)
+		return "", err
+	}
+	tmp.Close()
+	return path, nil
+}
+
+func filePreviewPNG(cfg Config, data []byte, filename string) ([]byte, error) {
+	contrast := cfg.PrintContrast
 	name := strings.ToLower(filename)
 	if strings.HasSuffix(name, ".pdf") || (len(data) >= 4 && string(data[:4]) == "%PDF") {
 		doc, err := fitz.NewFromMemory(data)
@@ -150,7 +230,7 @@ func filePreviewPNG(data []byte, filename string) ([]byte, error) {
 			return nil, err
 		}
 
-		return imageToGrayscalePNG(rgba)
+		return imageToGrayscalePNG(rgba, contrast)
 	}
 
 	decoded, _, err := image.Decode(bytes.NewReader(data))
@@ -158,7 +238,7 @@ func filePreviewPNG(data []byte, filename string) ([]byte, error) {
 		return nil, fmt.Errorf("imagem invalida: %w", err)
 	}
 
-	return imageToGrayscalePNG(decoded)
+	return imageToGrayscalePNG(decoded, contrast)
 }
 
 func printText(cfg Config, text string, align string, bold bool, cut CutMode, trim TrimMode) error {
@@ -198,7 +278,7 @@ func printText(cfg Config, text string, align string, bold bool, cut CutMode, tr
 	}
 
 	if bold {
-		if err := printer.SetBold(true); err != nil {
+		if err := printer.SelectPrintMode(escpos.Bold); err != nil {
 			return err
 		}
 	}
@@ -211,7 +291,7 @@ func printText(cfg Config, text string, align string, bold bool, cut CutMode, tr
 	}
 
 	if bold {
-		if err := printer.SetBold(false); err != nil {
+		if err := printer.SelectPrintMode(); err != nil {
 			return err
 		}
 	}
@@ -231,12 +311,20 @@ func printRaw(cfg Config, data []byte) error {
 }
 
 func printImageFile(cfg Config, imagePath string, cut CutMode) error {
+	processedPath, err := contrastProcessedImagePath(imagePath, cfg.PrintContrast)
+	if err != nil {
+		return err
+	}
+	if processedPath != imagePath {
+		defer os.Remove(processedPath)
+	}
+
 	output, err := escposimg.NewNetworkOutput(cfg.printerAddr())
 	if err != nil {
 		return err
 	}
 
-	if err := escposimg.ProcessImage(imagePath, escposImageConfig(cfg), output); err != nil {
+	if err := escposimg.ProcessImage(processedPath, escposImageConfig(cfg), output); err != nil {
 		return err
 	}
 	return sendCutCommand(cfg, cut)
@@ -355,99 +443,13 @@ func printPDFBytes(cfg Config, pdfData []byte, cutAfterPage, cutAfterDoc CutMode
 	return nil
 }
 
-func testPageLogoPNG() ([]byte, error) {
-	data, err := webFS.ReadFile("web/assets/imgs/logo-dark.jpeg")
-	if err != nil {
-		return nil, err
-	}
-
-	img, _, err := image.Decode(bytes.NewReader(data))
-	if err != nil {
-		return nil, fmt.Errorf("logo invalido: %w", err)
-	}
-
-	cropped := trimImageBlankMargins(img)
-	return imageToGrayscalePNG(cropped)
-}
-
-type escposBytesOutput struct {
-	buf bytes.Buffer
-}
-
-func (o *escposBytesOutput) Write(p []byte) error {
-	_, err := o.buf.Write(p)
-	return err
-}
-
-func (o *escposBytesOutput) Close() error {
-	return nil
-}
-
-func trimTrailingLineFeeds(data []byte, keep int) []byte {
-	end := len(data)
-	for end > 0 && data[end-1] == 0x0A {
-		end--
-	}
-	if keep < 0 {
-		keep = 0
-	}
-	out := make([]byte, end+keep)
-	copy(out, data[:end])
-	for i := 0; i < keep; i++ {
-		out[end+i] = 0x0A
-	}
-	return out
-}
-
-func printTestPage(cfg Config) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	printer := enrichDiscoveredPrinter(ctx, cfg.PrinterHost, DiscoveredPrinter{
-		Host:       cfg.PrinterHost,
-		Port:       cfg.PrinterPort,
-		Service:    "raw",
-		Configured: true,
-	}, 2*time.Second, deepEnrichOptions)
-
-	logoPNG, err := testPageLogoPNG()
-	if err != nil {
-		return err
-	}
-
-	tmpDir, err := os.MkdirTemp("", "printit-test-*")
-	if err != nil {
-		return err
-	}
-	defer os.RemoveAll(tmpDir)
-
-	logoPath := filepath.Join(tmpDir, "logo.png")
-	if err := os.WriteFile(logoPath, logoPNG, 0o600); err != nil {
-		return err
-	}
-
-	var logoOut escposBytesOutput
-	if err := escposimg.ProcessImage(logoPath, escposImageConfig(cfg), &logoOut); err != nil {
-		return err
-	}
-	logoESC := trimTrailingLineFeeds(logoOut.buf.Bytes(), 1)
-
-	conn, err := dialPrinter(cfg)
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-
-	if _, err := conn.Write(logoESC); err != nil {
-		return err
-	}
-
-	esc := escpos.NewPrinter(conn)
-	if err := esc.Justify(escpos.CenterJustify); err != nil {
-		return err
+func printTestPage(cfg Config, printer DiscoveredPrinter) error {
+	if printer.Label == "" {
+		printer.Label = friendlyPrinterLabel(printer)
 	}
 
 	lines := []string{
+		"print.it",
 		"------------------------------",
 	}
 
@@ -459,11 +461,10 @@ func printTestPage(cfg Config) error {
 
 	appendIfUseful("Endereco", cfg.printerAddr())
 	appendIfUseful("Nome", printer.Label)
-	if printer.Name != printer.Label {
+	if printer.Name != "" && printer.Name != printer.Label {
 		appendIfUseful("Identificacao", printer.Name)
 	}
 	appendIfUseful("Marca", printer.Manufacturer)
-	appendIfUseful("Chip de rede", printer.MacVendor)
 	appendIfUseful("Modelo", printer.Model)
 	appendIfUseful("Serie", printer.Serial)
 	appendIfUseful("Host", printer.Hostname)
@@ -473,13 +474,7 @@ func printTestPage(cfg Config) error {
 	lines = append(lines, fmt.Sprintf("Area imprimivel: %dmm", cfg.printableWidthMM()))
 	lines = append(lines, "", "Se voce leu isto,", "a conexao esta OK!", "")
 
-	for _, line := range lines {
-		if err := esc.Println(line); err != nil {
-			return err
-		}
-	}
-
-	return applyCut(esc, CutPartial)
+	return printText(cfg, strings.Join(lines, "\n"), "center", false, CutPartial, TrimNever)
 }
 
 func printBarcode(cfg Config, barcodeType string, data string, label string, align string, cut CutMode) error {
@@ -630,117 +625,6 @@ func rowDarkRatio(img image.Image, y int) float64 {
 	}
 
 	return float64(dark) / float64(width)
-}
-
-func colDarkRatio(img image.Image, x int) float64 {
-	bounds := img.Bounds()
-	height := bounds.Dy()
-	if height == 0 || x < bounds.Min.X || x >= bounds.Max.X {
-		return 0
-	}
-
-	dark := 0
-	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-		gray := color.GrayModel.Convert(img.At(x, y)).(color.Gray)
-		if gray.Y < blankPixelThreshold {
-			dark++
-		}
-	}
-
-	return float64(dark) / float64(height)
-}
-
-func trimImageBlankMargins(img image.Image) image.Image {
-	bounds := img.Bounds()
-	top := bounds.Max.Y
-	bottom := bounds.Min.Y - 1
-	left := bounds.Max.X
-	right := bounds.Min.X - 1
-
-	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-		if rowDarkRatio(img, y) >= trimRowMinDensity {
-			top = y
-			break
-		}
-	}
-	for y := bounds.Max.Y - 1; y >= bounds.Min.Y; y-- {
-		if rowDarkRatio(img, y) >= trimRowMinDensity {
-			bottom = y
-			break
-		}
-	}
-	for x := bounds.Min.X; x < bounds.Max.X; x++ {
-		if colDarkRatio(img, x) >= trimRowMinDensity {
-			left = x
-			break
-		}
-	}
-	for x := bounds.Max.X - 1; x >= bounds.Min.X; x-- {
-		if colDarkRatio(img, x) >= trimRowMinDensity {
-			right = x
-			break
-		}
-	}
-
-	if top >= bounds.Max.Y || bottom < bounds.Min.Y || left >= bounds.Max.X || right < bounds.Min.X {
-		return image.NewRGBA(image.Rect(0, 0, 0, 0))
-	}
-
-	crop := image.Rect(left, top, right+1, bottom+1)
-	if sub, ok := img.(interface{ SubImage(image.Rectangle) image.Image }); ok {
-		return sub.SubImage(crop)
-	}
-
-	return img
-}
-
-func clearEdgeDarkBackground(img *image.RGBA) {
-	bounds := img.Bounds()
-	w, h := bounds.Dx(), bounds.Dy()
-	if w == 0 || h == 0 {
-		return
-	}
-
-	visited := make([]bool, w*h)
-	idx := func(x, y int) int {
-		return (y-bounds.Min.Y)*w + (x - bounds.Min.X)
-	}
-	isBg := func(c color.RGBA) bool {
-		return c.R < 48 && c.G < 48 && c.B < 48
-	}
-
-	var queue []image.Point
-	add := func(x, y int) {
-		if x < bounds.Min.X || x >= bounds.Max.X || y < bounds.Min.Y || y >= bounds.Max.Y {
-			return
-		}
-		i := idx(x, y)
-		if visited[i] || !isBg(img.RGBAAt(x, y)) {
-			return
-		}
-		visited[i] = true
-		queue = append(queue, image.Pt(x, y))
-	}
-
-	for x := bounds.Min.X; x < bounds.Max.X; x++ {
-		add(x, bounds.Min.Y)
-		add(x, bounds.Max.Y-1)
-	}
-	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-		add(bounds.Min.X, y)
-		add(bounds.Max.X-1, y)
-	}
-
-	white := color.RGBA{R: 255, G: 255, B: 255, A: 255}
-	for len(queue) > 0 {
-		p := queue[0]
-		queue = queue[1:]
-		img.SetRGBA(p.X, p.Y, white)
-		add(p.X-1, p.Y)
-		add(p.X+1, p.Y)
-		add(p.X, p.Y-1)
-		add(p.X, p.Y+1)
-	}
 }
 
 func trimImageTrailingBlank(img image.Image) image.Image {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -45,8 +46,12 @@ func setupRuntimeLogging() error {
 		return err
 	}
 
-	log.SetOutput(io.MultiWriter(os.Stdout, file))
+	mw := io.MultiWriter(os.Stdout, file)
+	log.SetOutput(mw)
 	log.SetFlags(log.LstdFlags)
+	slog.SetDefault(slog.New(slog.NewTextHandler(mw, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	})))
 	return nil
 }
 

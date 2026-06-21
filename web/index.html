@@ -39,21 +39,21 @@
         <div class="popover" id="printerPopover" hidden>
           <div id="popoverConnectView">
             <p class="popover-title" data-i18n="printer.choose">Escolha uma impressora</p>
-            <div class="popover-actions">
-              <button type="button" class="btn secondary" id="btnDiscover" data-i18n="printer.discover">Buscar na rede</button>
-              <button type="button" class="btn secondary" id="btnTest" data-i18n="printer.testPrint">Imprimir teste</button>
-            </div>
             <div class="printer-list" id="printerList">
               <p class="empty" data-i18n="printer.emptyHint">Toque em &quot;Buscar na rede&quot; para começar.</p>
             </div>
-            <button type="button" class="btn-deep-corner" id="btnDiscoverDeep" data-i18n-title="printer.deepScanTitle" data-i18n="printer.deepScan">Varredura completa</button>
+            <div class="popover-connect-footer">
+              <button type="button" class="btn-deep-scan" id="btnDiscoverDeep" data-i18n-title="printer.deepScanTitle" data-i18n="printer.deepScan">Varredura completa</button>
+            </div>
           </div>
           <div id="popoverProfileView" hidden>
             <div class="popover-profile-header">
               <span class="popover-address" id="popoverPrinterAddress"></span>
-              <button type="button" class="btn-icon-swap" id="btnChangePrinter" data-i18n-title="printer.change" data-i18n-aria-label="printer.change">
-                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16 17.01V10h-2v7.01h-3L15 21l4-3.99h-3zM9 3L5 6.99h3V14h2V6.99h3L9 3z"/></svg>
-              </button>
+              <div class="popover-profile-actions">
+                <button type="button" class="btn-icon-swap" id="btnTestPrint" data-i18n-title="printer.testPrint" data-i18n-aria-label="printer.testPrint"></button>
+                <button type="button" class="btn-icon-swap" id="btnResetPrinter" data-i18n-title="printer.clearQueue" data-i18n-aria-label="printer.clearQueue"></button>
+                <button type="button" class="btn-icon-swap" id="btnChangePrinter" data-i18n-title="printer.change" data-i18n-aria-label="printer.change"></button>
+              </div>
             </div>
             <div class="popover-details" id="popoverPrinterDetails"></div>
             <div class="popover-prefs">
@@ -79,6 +79,12 @@
                 <option value="never" data-i18n="trim.never">Nunca</option>
                 <option value="page" data-i18n="trim.page">Ao fim de cada página</option>
                 <option value="document" data-i18n="trim.document">Ao fim do documento</option>
+              </select>
+              <label for="prefContrast" data-i18n="printer.printContrast">Contraste de impressão</label>
+              <select id="prefContrast">
+                <option value="100" data-i18n="contrast.normal">Normal</option>
+                <option value="125" data-i18n="contrast.high">Alto</option>
+                <option value="150" data-i18n="contrast.max">Máximo</option>
               </select>
               <button type="button" class="btn popover-advanced-btn" id="btnOpenAdvanced">
                 <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.03-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.34 3 3-1.34 3-3 3z"/></svg>
@@ -188,9 +194,8 @@
         <div class="file-preview-view" id="filePreviewView" hidden>
           <div class="receipt-preview-area file-receipt-preview">
             <div class="receipt-wrap">
-              <div class="receipt-paper receipt-paper-media file-preview-paper">
+              <div class="receipt-paper receipt-paper-media file-preview-paper" id="filePreviewPaper">
                 <img id="filePreviewImg" class="file-preview-bw" alt="" hidden>
-                <embed id="filePreviewPdf" class="file-preview-bw" type="application/pdf" hidden>
               </div>
               <div class="receipt-tear" aria-hidden="true"></div>
             </div>

@@ -22,4 +22,4 @@ syncReceiptPaperWidth();
 loadConfigForm().catch(() => {});
 onLangChange(() => refreshStatus(api));
 refreshStatus(api);
-setInterval(() => refreshStatus(api), 15000);
+setInterval(() => refreshStatus(api), 30000);

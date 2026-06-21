@@ -1,6 +1,6 @@
 import { api } from "./api.js";
 import { t } from "./i18n.js";
-import { bindFormSubmit, readPrintOptions, savePrefs, toast, value } from "./ui.js";
+import { applyPreviewAlign, bindFormSubmit, readPrintOptions, savePrefs, toast, value } from "./ui.js";
 
 function textPreviewContent() {
   return document.getElementById("textPreview")?.innerText ?? "";
@@ -13,13 +13,7 @@ function setTextAlign(align) {
   });
   savePrefs({ text_align: align });
   applyTextPreviewStyles();
-  applyGlobalPreviewAlign(align);
-}
-
-function applyGlobalPreviewAlign(align) {
-  ["bcPreviewBox", "qrPreviewBox"].forEach((id) => {
-    document.getElementById(id)?.style.setProperty("text-align", align);
-  });
+  applyPreviewAlign(align);
 }
 
 function isTextBold() {
@@ -63,7 +57,7 @@ export function initText() {
   });
 
   applyTextPreviewStyles();
-  applyGlobalPreviewAlign(value("textAlign"));
+  applyPreviewAlign(value("textAlign"));
 
   bindFormSubmit("btnPrintText", async () => {
     const opts = readPrintOptions();

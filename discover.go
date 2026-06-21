@@ -4,16 +4,19 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"os/exec"
 	"regexp"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/grandcat/zeroconf"
 	"github.com/gosnmp/gosnmp"
 )
 
@@ -52,8 +55,10 @@ type enrichOptions struct {
 }
 
 var quickEnrichOptions = enrichOptions{
-	http: true,
-	smb:  true,
+	http:   true,
+	smb:    true,
+	mac:    true,
+	escpos: true,
 }
 
 var deepEnrichOptions = enrichOptions{
@@ -66,7 +71,7 @@ var deepEnrichOptions = enrichOptions{
 }
 
 var ouiVendors = map[string]string{
-	"00:07:25": "Controlador de impressão",
+	"00:07:25": "Bematech",
 	"00:11:62": "Epson",
 	"00:17:C8": "Kyocera",
 	"00:1B:82": "Star Micronics",
@@ -87,6 +92,101 @@ var ouiVendors = map[string]string{
 	"E0:BB:9E": "Gprinter",
 	"E8:48:B8": "Canon",
 	"F4:30:B9": "HP",
+}
+
+var bonjourServiceTypes = []string{
+	"_ipp._tcp",
+	"_ipps._tcp",
+	"_airprint._tcp",
+	"_printer._tcp",
+	"_pdl-datastream._tcp",
+}
+
+type bonjourPrinterInfo struct {
+	Name    string
+	Service string
+}
+
+func discoverBonjourPrinters(ctx context.Context, timeout time.Duration) map[string]bonjourPrinterInfo {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	result := make(map[string]bonjourPrinterInfo)
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+
+	for _, serviceType := range bonjourServiceTypes {
+		wg.Add(1)
+		go func(serviceType string) {
+			defer wg.Done()
+
+			resolver, err := zeroconf.NewResolver(nil)
+			if err != nil {
+				return
+			}
+
+			entries := make(chan *zeroconf.ServiceEntry)
+			go func() {
+				_ = resolver.Browse(ctx, serviceType, "local.", entries)
+			}()
+
+			for entry := range entries {
+				if entry == nil {
+					continue
+				}
+
+				name := sanitizeDeviceString(unescapeDNSInstance(strings.TrimSpace(entry.Instance)))
+				if !isUsefulDeviceString(name) || isJunkValue(name) {
+					continue
+				}
+
+				for _, ip := range entry.AddrIPv4 {
+					ipStr := ip.String()
+					mu.Lock()
+					existing, ok := result[ipStr]
+					if !ok || bonjourServicePriority(serviceType) > bonjourServicePriority(existing.Service) {
+						result[ipStr] = bonjourPrinterInfo{Name: name, Service: serviceType}
+					}
+					mu.Unlock()
+				}
+			}
+		}(serviceType)
+	}
+
+	wg.Wait()
+	return result
+}
+
+func bonjourServicePriority(serviceType string) int {
+	switch serviceType {
+	case "_ipp._tcp", "_ipps._tcp":
+		return 4
+	case "_airprint._tcp":
+		return 3
+	case "_printer._tcp":
+		return 2
+	case "_pdl-datastream._tcp":
+		return 1
+	default:
+		return 0
+	}
+}
+
+func applyBonjourInfo(printer *DiscoveredPrinter, info bonjourPrinterInfo) {
+	setIfUseful(&printer.Name, info.Name)
+	if printer.Manufacturer == "" {
+		for _, brand := range []string{"Canon", "HP", "Epson", "Brother", "Kyocera", "Samsung", "Lexmark", "Ricoh", "Xerox"} {
+			if strings.HasPrefix(strings.ToLower(info.Name), strings.ToLower(brand)) {
+				printer.Manufacturer = brand
+				rest := strings.TrimSpace(strings.TrimPrefix(info.Name, brand))
+				setIfUseful(&printer.Model, rest)
+				break
+			}
+		}
+	}
+	if info.Service != "" {
+		printer.DeviceType = "Impressora (AirPrint/IPP)"
+	}
 }
 
 func discoverPrinters(ctx context.Context, timeout time.Duration, deep bool) (DiscoverResult, error) {
@@ -114,6 +214,15 @@ func discoverPrinters(ctx context.Context, timeout time.Duration, deep bool) (Di
 	targets := hostsForSubnets(subnets)
 	found := make(map[string]DiscoveredPrinter)
 	var mu sync.Mutex
+
+	bonjourTimeout := timeout + 2*time.Second
+	if bonjourTimeout > 4*time.Second {
+		bonjourTimeout = 4 * time.Second
+	}
+	bonjourCh := make(chan map[string]bonjourPrinterInfo, 1)
+	go func() {
+		bonjourCh <- discoverBonjourPrinters(ctx, bonjourTimeout)
+	}()
 
 	sem := make(chan struct{}, 64)
 	var wg sync.WaitGroup
@@ -147,13 +256,23 @@ func discoverPrinters(ctx context.Context, timeout time.Duration, deep bool) (Di
 				Host:       host,
 				Port:       9100,
 				Service:    "raw",
-				Configured: host == cfg.PrinterHost && cfg.PrinterPort == 9100,
+				Configured: false,
 			}
 			mu.Unlock()
 		}(host)
 	}
 
 	wg.Wait()
+
+	bonjourMap := <-bonjourCh
+	for host, info := range bonjourMap {
+		printer, ok := found[host]
+		if !ok {
+			continue
+		}
+		applyBonjourInfo(&printer, info)
+		found[host] = printer
+	}
 
 	if len(found) > 0 {
 		enrichSem := make(chan struct{}, 8)
@@ -189,6 +308,7 @@ func discoverPrinters(ctx context.Context, timeout time.Duration, deep bool) (Di
 		if printer.Label == "" {
 			printer.Label = friendlyPrinterLabel(printer)
 		}
+		printer.Configured = printerMatchesConfig(printer, cfg)
 		found[host] = printer
 	}
 
@@ -236,6 +356,9 @@ func isConfidentPrinter(printer DiscoveredPrinter) bool {
 	if printer.Configured {
 		return true
 	}
+	if printer.Host != "" && printer.Port == 9100 {
+		return true
+	}
 	if isUsefulDeviceString(printer.Name) && !isJunkValue(printer.Name) {
 		return true
 	}
@@ -252,12 +375,23 @@ func isJunkValue(value string) bool {
 	case "", "<nil>", "nil", "unknown", "n/a", "bsa/1.2":
 		return true
 	}
-	return strings.HasPrefix(lower, "bsa/")
+	if strings.HasPrefix(lower, "bsa/") {
+		return true
+	}
+	if strings.HasPrefix(lower, "http/") {
+		return true
+	}
+	if strings.Contains(lower, "404") && strings.Contains(lower, "not found") {
+		return true
+	}
+	return false
 }
 
 func enrichDiscoveredPrinter(ctx context.Context, host string, printer DiscoveredPrinter, timeout time.Duration, options enrichOptions) DiscoveredPrinter {
 	if ctx.Err() != nil {
-		printer.DeviceType = "Impressora térmica"
+		if printer.DeviceType == "" {
+			printer.DeviceType = "Impressora térmica"
+		}
 		printer.Label = friendlyPrinterLabel(printer)
 		return printer
 	}
@@ -306,7 +440,9 @@ func enrichDiscoveredPrinter(ctx context.Context, host string, printer Discovere
 		printer.Name = printer.Hostname
 	}
 
-	printer.DeviceType = "Impressora térmica"
+	if printer.DeviceType == "" {
+		printer.DeviceType = "Impressora térmica"
+	}
 	printer.Label = friendlyPrinterLabel(printer)
 
 	return printer
@@ -346,6 +482,14 @@ func friendlyPrinterLabel(printer DiscoveredPrinter) string {
 
 	if isUsefulDeviceString(printer.Hostname) && !isJunkValue(printer.Hostname) {
 		return printer.Hostname
+	}
+
+	if isUsefulDeviceString(printer.MacVendor) && !isJunkValue(printer.MacVendor) && printer.Host != "" {
+		return printer.MacVendor + " (" + printer.Host + ")"
+	}
+
+	if printer.Host != "" {
+		return "Impressora " + printer.Host
 	}
 
 	return "Impressora não identificada"
@@ -566,7 +710,7 @@ func lookupMAC(host string) string {
 		if end := strings.Index(rest, " "); end >= 0 {
 			mac := strings.ToLower(rest[:end])
 			if mac != "(incomplete)" {
-				return mac
+				return normalizeMAC(mac)
 			}
 		}
 	}
@@ -574,7 +718,65 @@ func lookupMAC(host string) string {
 	return ""
 }
 
+var arpLinePattern = regexp.MustCompile(`\(([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)\) at ([0-9a-f:]+)`)
+
+func lookupIPByMAC(mac string) string {
+	mac = normalizeMAC(mac)
+	if mac == "" {
+		return ""
+	}
+
+	out, err := exec.Command("arp", "-a").Output()
+	if err != nil {
+		return ""
+	}
+
+	for _, line := range strings.Split(string(out), "\n") {
+		match := arpLinePattern.FindStringSubmatch(line)
+		if len(match) < 3 {
+			continue
+		}
+		if normalizeMAC(match[2]) == mac {
+			return match[1]
+		}
+	}
+
+	return ""
+}
+
+func isHostPortOpen(host string, port int, timeout time.Duration) bool {
+	if strings.TrimSpace(host) == "" {
+		return false
+	}
+	if port == 0 {
+		port = 9100
+	}
+	conn, err := net.DialTimeout("tcp", net.JoinHostPort(host, strconv.Itoa(port)), timeout)
+	if err != nil {
+		return false
+	}
+	conn.Close()
+	return true
+}
+
+func updatePrinterHost(host string) bool {
+	host = strings.TrimSpace(host)
+	if host == "" {
+		return false
+	}
+	cfg := getConfig()
+	if cfg.PrinterHost == host {
+		return false
+	}
+	cfg.PrinterHost = host
+	if _, err := saveFullConfig(cfg); err != nil {
+		return false
+	}
+	return true
+}
+
 func vendorFromMAC(mac string) string {
+	mac = normalizeMAC(mac)
 	prefix := strings.ToUpper(mac)
 	if len(prefix) >= 8 {
 		prefix = prefix[:8]
@@ -636,6 +838,22 @@ func sanitizeDeviceString(value string) string {
 		}
 	}
 	return strings.TrimSpace(b.String())
+}
+
+func unescapeDNSInstance(value string) string {
+	if !strings.Contains(value, `\`) {
+		return value
+	}
+	var b strings.Builder
+	for i := 0; i < len(value); i++ {
+		if value[i] == '\\' && i+1 < len(value) {
+			b.WriteByte(value[i+1])
+			i++
+			continue
+		}
+		b.WriteByte(value[i])
+	}
+	return b.String()
 }
 
 func localSubnets24() ([]*net.IPNet, error) {
@@ -702,4 +920,168 @@ func hostsForSubnets(subnets []*net.IPNet) []string {
 	}
 
 	return hosts
+}
+
+func normalizeMAC(mac string) string {
+	mac = strings.TrimSpace(strings.ToLower(mac))
+	if mac == "" {
+		return ""
+	}
+	mac = strings.ReplaceAll(mac, "-", ":")
+	if !strings.Contains(mac, ":") && len(mac) == 12 {
+		parts := make([]string, 0, 6)
+		for i := 0; i < 12; i += 2 {
+			parts = append(parts, mac[i:i+2])
+		}
+		mac = strings.Join(parts, ":")
+	}
+
+	parts := strings.Split(mac, ":")
+	if len(parts) != 6 {
+		return mac
+	}
+
+	for i, part := range parts {
+		if len(part) == 0 {
+			parts[i] = "00"
+			continue
+		}
+		if len(part) == 1 {
+			part = "0" + part
+		}
+		if len(part) > 2 {
+			part = part[len(part)-2:]
+		}
+		parts[i] = part
+	}
+
+	return strings.Join(parts, ":")
+}
+
+func printerMatchesConfig(printer DiscoveredPrinter, cfg Config) bool {
+	port := cfg.PrinterPort
+	if port == 0 {
+		port = 9100
+	}
+	if printer.Port == 0 {
+		printer.Port = 9100
+	}
+
+	if mac := normalizeMAC(cfg.PrinterMAC); mac != "" && normalizeMAC(printer.MAC) == mac {
+		return printer.Port == port
+	}
+
+	return printer.Host == cfg.PrinterHost && printer.Port == port
+}
+
+func resolveConfiguredPrinter() bool {
+	cfg := getConfig()
+	mac := normalizeMAC(cfg.PrinterMAC)
+	if mac == "" {
+		return false
+	}
+
+	port := cfg.PrinterPort
+	if port == 0 {
+		port = 9100
+	}
+
+	if isHostPortOpen(cfg.PrinterHost, port, 800*time.Millisecond) {
+		ensureARP(cfg.PrinterHost, 800*time.Millisecond)
+		if normalizeMAC(lookupMAC(cfg.PrinterHost)) == mac {
+			return false
+		}
+	}
+
+	if ip := lookupIPByMAC(mac); ip != "" && ip != cfg.PrinterHost {
+		if isHostPortOpen(ip, port, 800*time.Millisecond) {
+			log.Printf("impressora encontrada na tabela ARP: %s (MAC %s)", ip, mac)
+			return updatePrinterHost(ip)
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+
+	host, ok := findHostByMAC(ctx, mac, port, 400*time.Millisecond)
+	if !ok || host == "" {
+		return false
+	}
+	if host == cfg.PrinterHost {
+		return false
+	}
+
+	log.Printf("impressora encontrada na rede: %s (MAC %s)", host, mac)
+	return updatePrinterHost(host)
+}
+
+func findHostByMAC(ctx context.Context, mac string, port int, timeout time.Duration) (string, bool) {
+	mac = normalizeMAC(mac)
+	if mac == "" {
+		return "", false
+	}
+	if port == 0 {
+		port = 9100
+	}
+
+	subnets, err := localSubnets24()
+	if err != nil {
+		return "", false
+	}
+
+	targets := hostsForSubnets(subnets)
+	var (
+		mu         sync.Mutex
+		foundHost  string
+		sem        = make(chan struct{}, 64)
+		wg         sync.WaitGroup
+	)
+
+	for _, host := range targets {
+		if ctx.Err() != nil {
+			break
+		}
+
+		wg.Add(1)
+		go func(host string) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			if ctx.Err() != nil {
+				return
+			}
+
+			mu.Lock()
+			alreadyFound := foundHost != ""
+			mu.Unlock()
+			if alreadyFound {
+				return
+			}
+
+			addr := net.JoinHostPort(host, strconv.Itoa(port))
+			conn, err := net.DialTimeout("tcp", addr, timeout)
+			if err != nil {
+				return
+			}
+			conn.Close()
+
+			ensureARP(host, timeout)
+			if normalizeMAC(lookupMAC(host)) != mac {
+				return
+			}
+
+			mu.Lock()
+			if foundHost == "" {
+				foundHost = host
+			}
+			mu.Unlock()
+		}(host)
+	}
+
+	wg.Wait()
+	if foundHost == "" {
+		return "", false
+	}
+	return foundHost, true
 }
