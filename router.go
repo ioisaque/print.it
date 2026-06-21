@@ -22,9 +22,11 @@ func newRouter() http.Handler {
 	mux.HandleFunc("POST /printit/raw", handlePrintRaw)
 	mux.HandleFunc("POST /printit/pdf", handlePrintPDF)
 	mux.HandleFunc("POST /printit/image", handlePrintImage)
+	mux.HandleFunc("POST /printit/preview", handleFilePreview)
 	mux.HandleFunc("POST /printit/test", handlePrintTest)
 	mux.HandleFunc("POST /printit/barcode", handlePrintBarcode)
 	mux.HandleFunc("POST /printit/qrcode", handlePrintQRCode)
+	mux.HandleFunc("GET /printit/barcodes/preview", handleBarcodesPreview)
 
 	webRoot, err := fs.Sub(webFS, "web")
 	if err != nil {

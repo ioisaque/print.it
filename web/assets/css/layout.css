@@ -36,11 +36,20 @@
   justify-content: flex-end;
 }
 
+.userbar .logo-btn {
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  line-height: 0;
+}
+
 .userbar .logo {
   height: 40px;
   width: auto;
   object-fit: contain;
   flex-shrink: 0;
+  display: block;
 }
 
 .status {
@@ -50,6 +59,224 @@
   font-size: 0.875rem;
   color: var(--color-neutral-dark);
   font-weight: 500;
+}
+
+.printer-profile-wrap {
+  position: relative;
+}
+
+.printer-profile-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid var(--color-border);
+  background: #fff;
+  color: var(--color-text-secondary);
+  padding: 0.4rem 0.75rem;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  min-width: 200px;
+  max-width: 340px;
+  width: min(340px, 42vw);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.printer-profile-btn:hover {
+  border-color: var(--color-primary);
+  box-shadow: 0 2px 8px rgba(13, 71, 161, 0.12);
+}
+
+.printer-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.printer-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.printer-icon.idle {
+  background: #f1f5f9;
+  color: var(--color-muted);
+}
+
+.printer-icon.ok {
+  background: #e8f8ef;
+  color: var(--color-success-dark);
+}
+
+.printer-icon.err {
+  background: #fde8ea;
+  color: var(--color-error);
+}
+
+#printerProfileLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+
+.popover-profile-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.popover-address {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.btn-icon-swap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-neutral);
+  cursor: pointer;
+  padding: 0;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.btn-icon-swap:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: #f8fbff;
+}
+
+.btn-icon-swap svg {
+  width: 18px;
+  height: 18px;
+}
+
+.popover-advanced-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  width: 100%;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+  box-shadow: none;
+}
+
+.popover-prefs {
+  padding-bottom: 0.25rem;
+}
+
+.popover-prefs .popover-advanced-btn {
+  margin-top: 1.25rem;
+  border-top: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.popover-advanced-btn:hover {
+  background: var(--color-primary-dark);
+}
+
+.popover-advanced-btn svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 320px;
+  max-width: 92vw;
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  padding: 1rem;
+  z-index: 1200;
+}
+
+.popover-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  margin-bottom: 0.75rem;
+}
+
+.popover-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.popover-actions .btn {
+  margin-top: 0;
+}
+
+.popover-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin-bottom: 0.75rem;
+}
+
+.popover-prefs .btn {
+  margin-top: 0.75rem;
+}
+
+button.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+button.btn svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.btn-deep-corner {
+  position: absolute;
+  right: 0.75rem;
+  bottom: 0.5rem;
+  border: none;
+  background: transparent;
+  color: var(--color-muted);
+  font-size: 0.7rem;
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+  text-decoration: underline;
+}
+
+#popoverConnectView {
+  position: relative;
+  padding-bottom: 1.5rem;
 }
 
 .dot {
@@ -109,6 +336,236 @@ nav.tabs button.active {
   background: rgba(255, 255, 255, 0.45);
 }
 
+.print-type-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.print-type-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.print-type-bar .format-toolbar {
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.print-type-bar > .btn {
+  margin-top: 0;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.print-type-bar > .btn[hidden] {
+  display: none;
+}
+
+.print-type-bar > .btn svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.print-type-nav {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  margin-bottom: 0;
+}
+
+.print-type-nav button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-neutral);
+  padding: 0.45rem 0.85rem;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.print-type-nav button svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.print-type-nav button:hover {
+  color: var(--color-text);
+  border-color: var(--color-neutral);
+}
+
+.print-type-nav button.active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+  font-weight: 600;
+}
+
+.print-prefs-card {
+  margin-bottom: 1rem;
+}
+
+.print-prefs-card h2 {
+  font-size: 0.9rem;
+}
+
+.print-form {
+  display: none;
+}
+
+.print-form.active {
+  display: block;
+}
+
+.form-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+
+.form-split .card {
+  margin-bottom: 0;
+}
+
+.preview-card h2 {
+  margin-bottom: 0.75rem;
+}
+
+.preview-box {
+  min-height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  overflow: hidden;
+}
+
+.preview-box img,
+.preview-box embed {
+  max-width: 100%;
+  max-height: 320px;
+  object-fit: contain;
+}
+
+.preview-box embed {
+  width: 100%;
+  height: 320px;
+}
+
+.preview-empty {
+  color: var(--color-muted);
+  font-size: 0.875rem;
+  text-align: center;
+  margin: 0;
+}
+
+.file-dropzone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 360px;
+  padding: 2rem;
+  background: var(--color-bg);
+  border: 2px dashed var(--color-border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.file-dropzone[hidden],
+.file-preview-view[hidden] {
+  display: none;
+}
+
+.file-dropzone:hover,
+.file-dropzone.dragover {
+  border-color: var(--color-primary);
+  background: #f8fbff;
+}
+
+.file-dropzone-inner {
+  text-align: center;
+  pointer-events: none;
+}
+
+.file-dropzone-title {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.file-dropzone-hint {
+  margin: 0 0 0.5rem;
+  font-size: 0.875rem;
+  color: var(--color-neutral);
+}
+
+.file-dropzone-types {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--color-muted);
+}
+
+.file-preview-view {
+  position: relative;
+  min-height: 420px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.file-receipt-preview {
+  margin-top: 0;
+  padding: 1.5rem;
+  padding-bottom: 4.5rem;
+  border-top: none;
+  min-height: 360px;
+}
+
+.file-preview-paper embed {
+  width: 100%;
+  height: 480px;
+  max-height: 520px;
+}
+
+.file-change-btn {
+  position: absolute;
+  right: 1rem;
+  bottom: 1rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.file-change-btn svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
 .panel {
   display: none;
 }
@@ -136,7 +593,8 @@ nav.tabs button.active {
 }
 
 @media (max-width: 600px) {
-  .row {
+  .row,
+  .form-split {
     grid-template-columns: 1fr;
   }
 }

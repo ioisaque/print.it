@@ -1,20 +1,21 @@
 import { api } from "./api.js";
 import { initBarcode } from "./barcode.js";
-import { initImage } from "./image.js";
-import { initPdf } from "./pdf.js";
+import { initFile } from "./file.js";
 import { initPrinter, loadConfigForm } from "./printer.js";
 import { initQrcode } from "./qrcode.js";
 import { initText } from "./text.js";
-import { initTabs, refreshStatus } from "./ui.js";
+import { applyPrefsToUI, initNavigation, initPrintTypes, refreshStatus, syncReceiptPaperWidth } from "./ui.js";
 
-initTabs();
+initNavigation();
+initPrintTypes();
 initPrinter();
 initText();
-initPdf();
-initBarcode();
-initQrcode();
-initImage();
+initFile();
+  initBarcode();
+  initQrcode();
 
+  applyPrefsToUI();
+  syncReceiptPaperWidth();
 loadConfigForm().catch(() => {});
 refreshStatus(api);
 setInterval(() => refreshStatus(api), 15000);

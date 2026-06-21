@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"image"
+	"image/draw"
 	"image/color"
 	_ "image/jpeg"
 	"image/png"
@@ -29,7 +30,86 @@ func dialPrinter(cfg Config) (net.Conn, error) {
 	return conn, nil
 }
 
-func escposImageConfig(cfg Config, cut bool) *escposimg.Config {
+type CutMode string
+
+const (
+	CutNone    CutMode = "none"
+	CutFull    CutMode = "full"
+	CutPartial CutMode = "partial"
+)
+
+type TrimMode string
+
+const (
+	TrimNever    TrimMode = "never"
+	TrimPage     TrimMode = "page"
+	TrimDocument TrimMode = "document"
+)
+
+func parseCutMode(value string, fallback CutMode) CutMode {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "full", "total":
+		return CutFull
+	case "partial", "parcial":
+		return CutPartial
+	case "none", "nenhum":
+		return CutNone
+	default:
+		return fallback
+	}
+}
+
+func parseTrimMode(value string, fallback TrimMode) TrimMode {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "page", "pagina":
+		return TrimPage
+	case "document", "documento":
+		return TrimDocument
+	case "never", "nunca":
+		return TrimNever
+	default:
+		return fallback
+	}
+}
+
+func shouldTrimPage(mode TrimMode, pageIndex, totalPages int) bool {
+	switch mode {
+	case TrimPage:
+		return true
+	case TrimDocument:
+		return pageIndex == totalPages-1
+	default:
+		return false
+	}
+}
+
+func applyCut(printer escpos.Printer, mode CutMode) error {
+	if mode == CutNone {
+		return nil
+	}
+	if err := printer.FeedLines(3); err != nil {
+		return err
+	}
+	if mode == CutFull {
+		return printer.Cut()
+	}
+	_, err := printer.Write([]byte{0x1D, 'V', 1})
+	return err
+}
+
+func sendCutCommand(cfg Config, mode CutMode) error {
+	if mode == CutNone {
+		return nil
+	}
+	conn, err := dialPrinter(cfg)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	return applyCut(escpos.NewPrinter(conn), mode)
+}
+
+func escposImageConfig(cfg Config) *escposimg.Config {
 	paperWidth := cfg.printableWidthMM()
 
 	return &escposimg.Config{
@@ -37,12 +117,52 @@ func escposImageConfig(cfg Config, cut bool) *escposimg.Config {
 		DPI:           escposimg.DPI203,
 		DitheringAlgo: escposimg.DitheringFloydSteinberg,
 		PrintMode:     escposimg.PrintModeRaster,
-		CutPaper:      cut,
+		CutPaper:      false,
 	}
 }
 
-func printText(cfg Config, text string, align string, bold bool, cut bool, trimTrailingBlank bool) error {
-	if trimTrailingBlank {
+func imageToGrayscalePNG(img image.Image) ([]byte, error) {
+	gray := image.NewGray(img.Bounds())
+	draw.Draw(gray, img.Bounds(), img, img.Bounds().Min, draw.Src)
+
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, gray); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func filePreviewPNG(data []byte, filename string) ([]byte, error) {
+	name := strings.ToLower(filename)
+	if strings.HasSuffix(name, ".pdf") || (len(data) >= 4 && string(data[:4]) == "%PDF") {
+		doc, err := fitz.NewFromMemory(data)
+		if err != nil {
+			return nil, fmt.Errorf("pdf invalido: %w", err)
+		}
+		defer doc.Close()
+
+		if doc.NumPage() == 0 {
+			return nil, fmt.Errorf("pdf sem paginas")
+		}
+
+		rgba, err := doc.ImageDPI(0, 120)
+		if err != nil {
+			return nil, err
+		}
+
+		return imageToGrayscalePNG(rgba)
+	}
+
+	decoded, _, err := image.Decode(bytes.NewReader(data))
+	if err != nil {
+		return nil, fmt.Errorf("imagem invalida: %w", err)
+	}
+
+	return imageToGrayscalePNG(decoded)
+}
+
+func printText(cfg Config, text string, align string, bold bool, cut CutMode, trim TrimMode) error {
+	if trim != TrimNever {
 		lines := strings.Split(strings.ReplaceAll(text, "\r\n", "\n"), "\n")
 		end := len(lines)
 		for end > 0 && strings.TrimSpace(lines[end-1]) == "" {
@@ -96,16 +216,7 @@ func printText(cfg Config, text string, align string, bold bool, cut bool, trimT
 		}
 	}
 
-	if cut {
-		if err := printer.FeedLines(3); err != nil {
-			return err
-		}
-		if err := printer.Cut(); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return applyCut(printer, cut)
 }
 
 func printRaw(cfg Config, data []byte) error {
@@ -119,17 +230,19 @@ func printRaw(cfg Config, data []byte) error {
 	return err
 }
 
-func printImageFile(cfg Config, imagePath string, cut bool) error {
+func printImageFile(cfg Config, imagePath string, cut CutMode) error {
 	output, err := escposimg.NewNetworkOutput(cfg.printerAddr())
 	if err != nil {
 		return err
 	}
-	defer output.Close()
 
-	return escposimg.ProcessImage(imagePath, escposImageConfig(cfg, cut), output)
+	if err := escposimg.ProcessImage(imagePath, escposImageConfig(cfg), output); err != nil {
+		return err
+	}
+	return sendCutCommand(cfg, cut)
 }
 
-func printImageBytes(cfg Config, imageData []byte, cut bool, trimTrailingBlank bool) error {
+func printImageBytes(cfg Config, imageData []byte, cut CutMode, trim TrimMode) error {
 	tmpDir, err := os.MkdirTemp("", "printit-img-*")
 	if err != nil {
 		return err
@@ -137,7 +250,7 @@ func printImageBytes(cfg Config, imageData []byte, cut bool, trimTrailingBlank b
 	defer os.RemoveAll(tmpDir)
 
 	imagePath := filepath.Join(tmpDir, "input.png")
-	if trimTrailingBlank {
+	if trim != TrimNever {
 		decoded, _, err := image.Decode(bytes.NewReader(imageData))
 		if err != nil {
 			return fmt.Errorf("imagem invalida: %w", err)
@@ -162,7 +275,7 @@ func printImageBytes(cfg Config, imageData []byte, cut bool, trimTrailingBlank b
 	return printImageFile(cfg, imagePath, cut)
 }
 
-func printPDFBytes(cfg Config, pdfData []byte, cutEnd bool, cutBetweenPages bool, trimTrailingBlank bool) error {
+func printPDFBytes(cfg Config, pdfData []byte, cutAfterPage, cutAfterDoc CutMode, trim TrimMode) error {
 	doc, err := fitz.NewFromMemory(pdfData)
 	if err != nil {
 		return fmt.Errorf("pdf invalido: %w", err)
@@ -179,9 +292,10 @@ func printPDFBytes(cfg Config, pdfData []byte, cutEnd bool, cutBetweenPages bool
 	}
 	defer os.RemoveAll(tmpDir)
 
-	imgCfg := escposImageConfig(cfg, false)
+	imgCfg := escposImageConfig(cfg)
+	totalPages := doc.NumPage()
 
-	for page := 0; page < doc.NumPage(); page++ {
+	for page := 0; page < totalPages; page++ {
 		bounds, err := doc.Bound(page)
 		if err != nil {
 			return fmt.Errorf("pagina %d: %w", page+1, err)
@@ -201,7 +315,7 @@ func printPDFBytes(cfg Config, pdfData []byte, cutEnd bool, cutBetweenPages bool
 		}
 
 		pageImg := image.Image(rgba)
-		if trimTrailingBlank {
+		if shouldTrimPage(trim, page, totalPages) {
 			pageImg = trimImageTrailingBlank(pageImg)
 			if pageImg.Bounds().Dy() == 0 {
 				continue
@@ -220,21 +334,20 @@ func printPDFBytes(cfg Config, pdfData []byte, cutEnd bool, cutBetweenPages bool
 		}
 		file.Close()
 
-		pageCut := false
-		if page < doc.NumPage()-1 {
-			pageCut = cutBetweenPages
-		} else {
-			pageCut = cutEnd
+		pageCut := cutAfterDoc
+		if page < totalPages-1 {
+			pageCut = cutAfterPage
 		}
-		pageCfg := *imgCfg
-		pageCfg.CutPaper = pageCut
 
 		output, err := escposimg.NewNetworkOutput(cfg.printerAddr())
 		if err != nil {
 			return fmt.Errorf("pagina %d: %w", page+1, err)
 		}
 
-		if err := escposimg.ProcessImage(pagePath, &pageCfg, output); err != nil {
+		if err := escposimg.ProcessImage(pagePath, imgCfg, output); err != nil {
+			return fmt.Errorf("pagina %d: %w", page+1, err)
+		}
+		if err := sendCutCommand(cfg, pageCut); err != nil {
 			return fmt.Errorf("pagina %d: %w", page+1, err)
 		}
 	}
@@ -280,10 +393,10 @@ func printTestPage(cfg Config) error {
 	lines = append(lines, fmt.Sprintf("Area imprimivel: %dmm", cfg.printableWidthMM()))
 	lines = append(lines, "", "Se voce leu isto,", "a conexao esta OK!", "")
 
-	return printText(cfg, strings.Join(lines, "\n"), "center", false, true, false)
+	return printText(cfg, strings.Join(lines, "\n"), "center", false, CutPartial, TrimNever)
 }
 
-func printBarcode(cfg Config, barcodeType string, data string, label string, align string, cut bool) error {
+func printBarcode(cfg Config, barcodeType string, data string, label string, align string, cut CutMode) error {
 	conn, err := dialPrinter(cfg)
 	if err != nil {
 		return err
@@ -345,19 +458,10 @@ func printBarcode(cfg Config, barcodeType string, data string, label string, ali
 		return err
 	}
 
-	if cut {
-		if err := printer.FeedLines(3); err != nil {
-			return err
-		}
-		if err := printer.Cut(); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return applyCut(printer, cut)
 }
 
-func printQRCode(cfg Config, data string, label string, align string, cut bool) error {
+func printQRCode(cfg Config, data string, label string, align string, cut CutMode) error {
 	conn, err := dialPrinter(cfg)
 	if err != nil {
 		return err
@@ -398,16 +502,7 @@ func printQRCode(cfg Config, data string, label string, align string, cut bool) 
 		return err
 	}
 
-	if cut {
-		if err := printer.FeedLines(3); err != nil {
-			return err
-		}
-		if err := printer.Cut(); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return applyCut(printer, cut)
 }
 
 func buildQRCodeCommands(content string) []byte {

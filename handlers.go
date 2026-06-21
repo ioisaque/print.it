@@ -16,9 +16,11 @@ const maxUploadBytes = 10 << 20 // 10 MB
 type printTextRequest struct {
 	Text              string `json:"text"`
 	Cut               *bool  `json:"cut"`
+	CutAfterDocument  string `json:"cut_after_document"`
 	Align             string `json:"align"`
 	Bold              bool   `json:"bold"`
 	TrimTrailingBlank *bool  `json:"trim_trailing_blank"`
+	TrimBlank         string `json:"trim_blank"`
 }
 
 type printRawRequest struct {
@@ -28,29 +30,36 @@ type printRawRequest struct {
 type printPDFRequest struct {
 	PDFBase64         string `json:"pdf_base64"`
 	Cut               *bool  `json:"cut"`
+	CutAfterPage      string `json:"cut_after_page"`
+	CutAfterDocument  string `json:"cut_after_document"`
 	CutBetweenPages   *bool  `json:"cut_between_pages"`
 	TrimTrailingBlank *bool  `json:"trim_trailing_blank"`
+	TrimBlank         string `json:"trim_blank"`
 }
 
 type printImageRequest struct {
 	ImageBase64       string `json:"image_base64"`
 	Cut               *bool  `json:"cut"`
+	CutAfterDocument  string `json:"cut_after_document"`
 	TrimTrailingBlank *bool  `json:"trim_trailing_blank"`
+	TrimBlank         string `json:"trim_blank"`
 }
 
 type printBarcodeRequest struct {
-	Type  string `json:"type"`
-	Data  string `json:"data"`
-	Label string `json:"label"`
-	Align string `json:"align"`
-	Cut   *bool  `json:"cut"`
+	Type             string `json:"type"`
+	Data             string `json:"data"`
+	Label            string `json:"label"`
+	Align            string `json:"align"`
+	Cut              *bool  `json:"cut"`
+	CutAfterDocument string `json:"cut_after_document"`
 }
 
 type printQRCodeRequest struct {
-	Data  string `json:"data"`
-	Label string `json:"label"`
-	Align string `json:"align"`
-	Cut   *bool  `json:"cut"`
+	Data             string `json:"data"`
+	Label            string `json:"label"`
+	Align            string `json:"align"`
+	Cut              *bool  `json:"cut"`
+	CutAfterDocument string `json:"cut_after_document"`
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload any) {
@@ -77,8 +86,95 @@ func trimTrailingBlankValue(form string, value *bool, fallback bool) bool {
 	return boolValue(value, fallback)
 }
 
+type printOptions struct {
+	CutAfterPage CutMode
+	CutAfterDoc  CutMode
+	Trim         TrimMode
+}
+
+func cutAfterDocFromLegacy(cut *bool, partialDefault bool) CutMode {
+	if cut == nil {
+		if partialDefault {
+			return CutPartial
+		}
+		return CutFull
+	}
+	if !*cut {
+		return CutNone
+	}
+	if partialDefault {
+		return CutPartial
+	}
+	return CutFull
+}
+
+func parsePrintOptionsForm(r *http.Request, cfg Config, partialDocDefault bool) printOptions {
+	opts := printOptions{
+		CutAfterPage: CutNone,
+		CutAfterDoc:  cutAfterDocFromLegacy(nil, partialDocDefault),
+		Trim:         trimModeFromLegacy(cfg.TrimTrailingBlank),
+	}
+
+	if value := r.FormValue("cut_after_page"); value != "" {
+		opts.CutAfterPage = parseCutMode(value, CutNone)
+	} else if value := r.FormValue("cut_between_pages"); value != "" {
+		if value == "true" || value == "1" {
+			opts.CutAfterPage = CutPartial
+		}
+	}
+
+	if value := r.FormValue("cut_after_document"); value != "" {
+		opts.CutAfterDoc = parseCutMode(value, CutNone)
+	} else if value := r.FormValue("cut"); value != "" {
+		cut := value == "true" || value == "1"
+		opts.CutAfterDoc = cutAfterDocFromLegacy(&cut, partialDocDefault)
+	}
+
+	if value := r.FormValue("trim_blank"); value != "" {
+		opts.Trim = parseTrimMode(value, TrimNever)
+	} else {
+		opts.Trim = trimModeFromLegacy(trimTrailingBlankValue(r.FormValue("trim_trailing_blank"), nil, cfg.TrimTrailingBlank))
+	}
+
+	return opts
+}
+
+func trimModeFromLegacy(blank bool) TrimMode {
+	if blank {
+		return TrimDocument
+	}
+	return TrimNever
+}
+
+func parsePrintOptionsJSON(cutAfterPage, cutAfterDoc, trimBlank string, cut *bool, cutBetween *bool, trim *bool, cfg Config, partialDocDefault bool) printOptions {
+	opts := printOptions{
+		CutAfterPage: CutNone,
+		CutAfterDoc:  cutAfterDocFromLegacy(cut, partialDocDefault),
+		Trim:         trimModeFromLegacy(cfg.TrimTrailingBlank),
+	}
+
+	if cutAfterPage != "" {
+		opts.CutAfterPage = parseCutMode(cutAfterPage, CutNone)
+	} else if cutBetween != nil && *cutBetween {
+		opts.CutAfterPage = CutPartial
+	}
+
+	if cutAfterDoc != "" {
+		opts.CutAfterDoc = parseCutMode(cutAfterDoc, CutNone)
+	}
+
+	if trimBlank != "" {
+		opts.Trim = parseTrimMode(trimBlank, TrimNever)
+	} else if trim != nil {
+		opts.Trim = trimModeFromLegacy(*trim)
+	}
+
+	return opts
+}
+
 func handleStatus(w http.ResponseWriter, r *http.Request) {
 	cfg := getConfig()
+	cfg.BarcodesAPIKey = ""
 	writeJSON(w, http.StatusOK, map[string]any{
 		"status":  "ok",
 		"service": "print.it",
@@ -125,6 +221,9 @@ func handlePutConfig(w http.ResponseWriter, r *http.Request) {
 	if patch.PrintableWidthMM > 0 {
 		cfg.PrintableWidthMM = patch.PrintableWidthMM
 	}
+	if patch.BarcodesAPIKey != "" {
+		cfg.BarcodesAPIKey = patch.BarcodesAPIKey
+	}
 	if flags.TrimTrailingBlank != nil {
 		cfg.TrimTrailingBlank = *flags.TrimTrailingBlank
 	}
@@ -138,7 +237,47 @@ func handlePutConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	updated.BarcodesAPIKey = ""
 	writeJSON(w, http.StatusOK, updated)
+}
+
+func handleBarcodesPreview(w http.ResponseWriter, r *http.Request) {
+	txt := r.URL.Query().Get("txt")
+	if strings.TrimSpace(txt) == "" {
+		writeError(w, http.StatusBadRequest, "campo txt obrigatorio")
+		return
+	}
+
+	cfg := getConfig()
+	if cfg.BarcodesAPIKey == "" {
+		writeError(w, http.StatusBadGateway, "barcodes_api_key nao configurada")
+		return
+	}
+
+	params := r.URL.Query()
+	params.Set("logo", "false")
+	params.Set("key", cfg.BarcodesAPIKey)
+
+	upstream, err := http.Get("https://api.isaque.it/barcodes?" + params.Encode())
+	if err != nil {
+		writeError(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	defer upstream.Body.Close()
+
+	if upstream.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(io.LimitReader(upstream.Body, 4096))
+		message := strings.TrimSpace(string(body))
+		if message == "" {
+			message = upstream.Status
+		}
+		writeError(w, upstream.StatusCode, message)
+		return
+	}
+
+	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set("Cache-Control", "no-store")
+	_, _ = io.Copy(w, upstream.Body)
 }
 
 func handlePrintText(w http.ResponseWriter, r *http.Request) {
@@ -154,7 +293,8 @@ func handlePrintText(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cfg := getConfig()
-	if err := printText(cfg, req.Text, req.Align, req.Bold, boolValue(req.Cut, true), boolValue(req.TrimTrailingBlank, cfg.TrimTrailingBlank)); err != nil {
+	opts := parsePrintOptionsJSON("", req.CutAfterDocument, req.TrimBlank, req.Cut, nil, req.TrimTrailingBlank, cfg, false)
+	if err := printText(cfg, req.Text, req.Align, req.Bold, opts.CutAfterDoc, opts.Trim); err != nil {
 		writeError(w, http.StatusBadGateway, err.Error())
 		return
 	}
@@ -203,9 +343,7 @@ func handlePrintRaw(w http.ResponseWriter, r *http.Request) {
 }
 
 func handlePrintPDF(w http.ResponseWriter, r *http.Request) {
-	cutEnd := true
-	cutBetweenPages := false
-	trimTrailingBlank := false
+	var opts printOptions
 	var pdfData []byte
 	var err error
 
@@ -217,13 +355,7 @@ func handlePrintPDF(w http.ResponseWriter, r *http.Request) {
 		}
 
 		cfg := getConfig()
-		if value := r.FormValue("cut"); value != "" {
-			cutEnd = value == "true" || value == "1"
-		}
-		if value := r.FormValue("cut_between_pages"); value != "" {
-			cutBetweenPages = value == "true" || value == "1"
-		}
-		trimTrailingBlank = trimTrailingBlankValue(r.FormValue("trim_trailing_blank"), nil, cfg.TrimTrailingBlank)
+		opts = parsePrintOptionsForm(r, cfg, true)
 
 		file, _, err := r.FormFile("file")
 		if err != nil {
@@ -239,9 +371,7 @@ func handlePrintPDF(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		cfg := getConfig()
-		cutEnd = boolValue(req.Cut, true)
-		cutBetweenPages = boolValue(req.CutBetweenPages, false)
-		trimTrailingBlank = boolValue(req.TrimTrailingBlank, cfg.TrimTrailingBlank)
+		opts = parsePrintOptionsJSON(req.CutAfterPage, req.CutAfterDocument, req.TrimBlank, req.Cut, req.CutBetweenPages, req.TrimTrailingBlank, cfg, true)
 		pdfData, err = decodeBase64Field(req.PDFBase64)
 	}
 
@@ -251,7 +381,7 @@ func handlePrintPDF(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cfg := getConfig()
-	if err := printPDFBytes(cfg, pdfData, cutEnd, cutBetweenPages, trimTrailingBlank); err != nil {
+	if err := printPDFBytes(cfg, pdfData, opts.CutAfterPage, opts.CutAfterDoc, opts.Trim); err != nil {
 		writeError(w, http.StatusBadGateway, err.Error())
 		return
 	}
@@ -260,8 +390,7 @@ func handlePrintPDF(w http.ResponseWriter, r *http.Request) {
 }
 
 func handlePrintImage(w http.ResponseWriter, r *http.Request) {
-	cut := true
-	trimTrailingBlank := false
+	var opts printOptions
 	var imageData []byte
 	var err error
 
@@ -273,10 +402,7 @@ func handlePrintImage(w http.ResponseWriter, r *http.Request) {
 		}
 
 		cfg := getConfig()
-		if value := r.FormValue("cut"); value != "" {
-			cut = value == "true" || value == "1"
-		}
-		trimTrailingBlank = trimTrailingBlankValue(r.FormValue("trim_trailing_blank"), nil, cfg.TrimTrailingBlank)
+		opts = parsePrintOptionsForm(r, cfg, true)
 
 		file, _, err := r.FormFile("file")
 		if err != nil {
@@ -292,8 +418,7 @@ func handlePrintImage(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		cfg := getConfig()
-		cut = boolValue(req.Cut, true)
-		trimTrailingBlank = boolValue(req.TrimTrailingBlank, cfg.TrimTrailingBlank)
+		opts = parsePrintOptionsJSON("", req.CutAfterDocument, req.TrimBlank, req.Cut, nil, req.TrimTrailingBlank, cfg, true)
 		imageData, err = decodeBase64Field(req.ImageBase64)
 	}
 
@@ -303,12 +428,42 @@ func handlePrintImage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cfg := getConfig()
-	if err := printImageBytes(cfg, imageData, cut, trimTrailingBlank); err != nil {
+	if err := printImageBytes(cfg, imageData, opts.CutAfterDoc, opts.Trim); err != nil {
 		writeError(w, http.StatusBadGateway, err.Error())
 		return
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func handleFilePreview(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseMultipartForm(maxUploadBytes); err != nil {
+		writeError(w, http.StatusBadRequest, "upload invalido")
+		return
+	}
+
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "campo file obrigatorio")
+		return
+	}
+	defer file.Close()
+
+	data, err := readAllLimited(file, maxUploadBytes)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	pngData, err := filePreviewPNG(data, header.Filename)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set("Cache-Control", "no-store")
+	_, _ = w.Write(pngData)
 }
 
 func handleDiscover(w http.ResponseWriter, r *http.Request) {
@@ -383,7 +538,8 @@ func handlePrintBarcode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cfg := getConfig()
-	if err := printBarcode(cfg, req.Type, req.Data, req.Label, req.Align, boolValue(req.Cut, true)); err != nil {
+	opts := parsePrintOptionsJSON("", req.CutAfterDocument, "", req.Cut, nil, nil, cfg, false)
+	if err := printBarcode(cfg, req.Type, req.Data, req.Label, req.Align, opts.CutAfterDoc); err != nil {
 		writeError(w, http.StatusBadGateway, err.Error())
 		return
 	}
@@ -403,7 +559,8 @@ func handlePrintQRCode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cfg := getConfig()
-	if err := printQRCode(cfg, req.Data, req.Label, req.Align, boolValue(req.Cut, true)); err != nil {
+	opts := parsePrintOptionsJSON("", req.CutAfterDocument, "", req.Cut, nil, nil, cfg, false)
+	if err := printQRCode(cfg, req.Data, req.Label, req.Align, opts.CutAfterDoc); err != nil {
 		writeError(w, http.StatusBadGateway, err.Error())
 		return
 	}

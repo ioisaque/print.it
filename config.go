@@ -17,6 +17,7 @@ type Config struct {
 	PaperWidthMM       int      `json:"paper_width_mm"`
 	PrintableWidthMM   int      `json:"printable_width_mm"`
 	TrimTrailingBlank  bool     `json:"trim_trailing_blank"`
+	BarcodesAPIKey     string   `json:"barcodes_api_key"`
 	CorsOrigins        []string `json:"cors_origins"`
 }
 
@@ -105,6 +106,9 @@ func updateConfig(patch Config) (Config, error) {
 	}
 	if patch.PrintableWidthMM > 0 {
 		config.PrintableWidthMM = patch.PrintableWidthMM
+	}
+	if patch.BarcodesAPIKey != "" {
+		config.BarcodesAPIKey = patch.BarcodesAPIKey
 	}
 	if len(patch.CorsOrigins) > 0 {
 		config.CorsOrigins = patch.CorsOrigins
