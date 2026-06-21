@@ -49,9 +49,23 @@ end;
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 var
   ResultCode: Integer;
+  StopCmd: String;
 begin
   NeedsRestart := False;
-  Exec('powershell.exe', '-NoProfile -ExecutionPolicy Bypass -Command "Get-Process -Name print.it -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep -Seconds 1"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  StopCmd := '-NoProfile -ExecutionPolicy Bypass -Command "$p = Get-Process -Name print.it -ErrorAction SilentlyContinue; if ($p) { $p | Stop-Process -Force; Start-Sleep -Seconds 2; if (Get-Process -Name print.it -ErrorAction SilentlyContinue) { exit 1 } }; exit 0"';
+
+  if not Exec('powershell.exe', StopCmd, '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+  begin
+    Result := 'Nao foi possivel parar o print.it. Feche o agente manualmente e tente novamente.';
+    Exit;
+  end;
+
+  if ResultCode <> 0 then
+  begin
+    Result := 'O print.it ainda esta em execucao. Feche o agente manualmente e tente novamente.';
+    Exit;
+  end;
+
   Result := '';
 end;
 
