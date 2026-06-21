@@ -14,7 +14,7 @@ if [ ! -f "$BINARY" ]; then
     echo "Use GitHub Actions ou: msys2 -> pacman -S mingw-w64-x86_64-gcc -> CGO_ENABLED=1 go build ..." >&2
     exit 1
   fi
-  CGO_ENABLED=1 go build -ldflags "-s -w" -o "$BINARY" .
+  CGO_ENABLED=1 go build -ldflags "-s -w -H=windowsgui" -o "$BINARY" .
 fi
 
 if command -v iscc >/dev/null 2>&1; then

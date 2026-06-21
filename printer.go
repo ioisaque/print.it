@@ -355,6 +355,30 @@ func printPDFBytes(cfg Config, pdfData []byte, cutAfterPage, cutAfterDoc CutMode
 	return nil
 }
 
+func testPageLogoPNG() ([]byte, error) {
+	data, err := webFS.ReadFile("web/assets/imgs/logos/logo-dark.svg")
+	if err != nil {
+		return nil, err
+	}
+
+	doc, err := fitz.NewFromMemory(data)
+	if err != nil {
+		return nil, fmt.Errorf("logo invalido: %w", err)
+	}
+	defer doc.Close()
+
+	if doc.NumPage() == 0 {
+		return nil, fmt.Errorf("logo sem paginas")
+	}
+
+	rgba, err := doc.ImageDPI(0, 120)
+	if err != nil {
+		return nil, err
+	}
+
+	return imageToGrayscalePNG(rgba)
+}
+
 func printTestPage(cfg Config) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -393,7 +417,16 @@ func printTestPage(cfg Config) error {
 	lines = append(lines, fmt.Sprintf("Area imprimivel: %dmm", cfg.printableWidthMM()))
 	lines = append(lines, "", "Se voce leu isto,", "a conexao esta OK!", "")
 
-	return printText(cfg, strings.Join(lines, "\n"), "center", false, CutPartial, TrimNever)
+	if err := printText(cfg, strings.Join(lines, "\n"), "center", false, CutNone, TrimNever); err != nil {
+		return err
+	}
+
+	logoPNG, err := testPageLogoPNG()
+	if err != nil {
+		return err
+	}
+
+	return printImageBytes(cfg, logoPNG, CutPartial, TrimNever)
 }
 
 func printBarcode(cfg Config, barcodeType string, data string, label string, align string, cut CutMode) error {

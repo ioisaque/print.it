@@ -133,7 +133,7 @@ jobs:
           gcc --version
           go mod tidy
           New-Item -ItemType Directory -Force dist | Out-Null
-          go build -ldflags "-s -w" -o dist/print.it-windows-amd64.exe .
+          go build -ldflags "-s -w -H=windowsgui" -o dist/print.it-windows-amd64.exe .
           go version
           if (-not (Test-Path dist/print.it-windows-amd64.exe)) { throw "build failed" }
       - name: Install Inno Setup
