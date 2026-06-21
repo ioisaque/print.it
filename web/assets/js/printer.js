@@ -1,4 +1,5 @@
 import { api } from "./api.js";
+import { onLangChange, t } from "./i18n.js";
 import {
     applyPrefsToUI,
     bindFormSubmit,
@@ -28,11 +29,11 @@ function isUsefulField(value) {
 }
 
 function renderPrinterItem(p, index) {
-  const title = escapeHtml(p.label || `Impressora ${index + 1}`);
+  const title = escapeHtml(p.label || t("printer.printerN", { n: index + 1 }));
   const details = [
-    isUsefulField(p.manufacturer) ? `Marca: ${p.manufacturer}` : null,
-    isUsefulField(p.model) ? `Modelo: ${p.model}` : null,
-    `Endereço: ${p.host}`,
+    isUsefulField(p.manufacturer) ? t("printer.brand", { name: p.manufacturer }) : null,
+    isUsefulField(p.model) ? t("printer.model", { name: p.model }) : null,
+    t("printer.address", { addr: p.host }),
   ].filter(Boolean);
 
   return `
@@ -41,17 +42,17 @@ function renderPrinterItem(p, index) {
         <strong>${title}</strong>
         ${details.map((line) => `<span class="printer-meta">${escapeHtml(line)}</span>`).join("")}
       </div>
-      <button type="button" class="btn secondary" data-host="${p.host}" data-port="${p.port}">Usar</button>
+      <button type="button" class="btn secondary" data-host="${p.host}" data-port="${p.port}">${escapeHtml(t("printer.use"))}</button>
     </div>`;
 }
 
 function renderProfileDetails(profile) {
   const lines = [
-    profile.manufacturer ? `Marca: ${profile.manufacturer}` : null,
-    profile.model ? `Modelo: ${profile.model}` : null,
-    profile.serial ? `Série: ${profile.serial}` : null,
-    profile.mac ? `MAC: ${profile.mac}` : null,
-    profile.mac_vendor ? `Chip de rede: ${profile.mac_vendor}` : null,
+    profile.manufacturer ? t("printer.brand", { name: profile.manufacturer }) : null,
+    profile.model ? t("printer.model", { name: profile.model }) : null,
+    profile.serial ? t("printer.serial", { value: profile.serial }) : null,
+    profile.mac ? t("printer.mac", { value: profile.mac }) : null,
+    profile.mac_vendor ? t("printer.networkChip", { name: profile.mac_vendor }) : null,
   ].filter(Boolean);
 
   return lines.map((line) => `<span class="printer-meta">${escapeHtml(line)}</span>`).join("");
@@ -110,7 +111,7 @@ async function selectPrinter(host, port, printerData = {}) {
   const profile = {
     host,
     port,
-    label: printerData.label || printerData.name || "Impressora conectada",
+    label: printerData.label || printerData.name || t("printer.connected"),
     manufacturer: printerData.manufacturer || "",
     model: printerData.model || "",
     serial: printerData.serial || "",
@@ -123,24 +124,24 @@ async function selectPrinter(host, port, printerData = {}) {
   refreshStatus(api);
   updateProfilePopover();
   showPopoverView(true);
-  toast("Impressora conectada");
+  toast(t("toast.printerConnected"));
 }
 
 async function runDiscover({ deep = false } = {}) {
   const btn = document.getElementById(deep ? "btnDiscoverDeep" : "btnDiscover");
   const list = document.getElementById("printerList");
-  const defaultLabel = deep ? "Varredura completa" : "Buscar na rede";
+  const defaultLabel = deep ? t("printer.deepScan") : t("printer.discover");
 
   btn.disabled = true;
-  btn.textContent = deep ? "..." : "Buscando...";
-  list.innerHTML = `<p class="empty">${deep ? "Varredura completa..." : "Buscando impressoras..."}</p>`;
+  btn.textContent = deep ? "..." : t("printer.discovering");
+  list.innerHTML = `<p class="empty">${escapeHtml(deep ? t("printer.deepScanning") : t("printer.discoveringList"))}</p>`;
 
   try {
     const data = await api.discover(deep);
     if (!data.printers?.length) {
       list.innerHTML = deep
-        ? '<p class="empty">Nenhuma impressora encontrada.</p>'
-        : '<p class="empty">Nenhuma identificável. Use varredura completa no canto.</p>';
+        ? `<p class="empty">${escapeHtml(t("printer.noneFound"))}</p>`
+        : `<p class="empty">${escapeHtml(t("printer.emptyDeep"))}</p>`;
       return;
     }
 
@@ -157,10 +158,10 @@ async function runDiscover({ deep = false } = {}) {
       });
     });
 
-    toast(`${data.count} impressora(s) encontrada(s)`);
+    toast(t("printer.foundCount", { count: data.count }));
   } catch (err) {
     toast(err.message, false);
-    list.innerHTML = '<p class="empty">Falha na busca.</p>';
+    list.innerHTML = `<p class="empty">${escapeHtml(t("printer.searchFailed"))}</p>`;
   } finally {
     btn.disabled = false;
     btn.textContent = defaultLabel;
@@ -228,13 +229,20 @@ export function initPrinter() {
     }
 
     applyPrefsToUI();
-    toast("Configuração salva");
+    toast(t("toast.configSaved"));
     refreshStatus(api);
   });
 
   bindFormSubmit("btnTest", async () => {
     const data = await api.test();
-    toast(data.message || "Teste enviado");
+    toast(data.message || t("toast.testSent"));
+  });
+
+  onLangChange(() => {
+    const popover = document.getElementById("printerPopover");
+    if (!popover.hidden) {
+      updateProfilePopover();
+    }
   });
 }
 

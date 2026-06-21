@@ -1,4 +1,5 @@
 import { api } from "./api.js";
+import { t } from "./i18n.js";
 import { applyQrcodePreviewSize, bindFormSubmit, readPrintOptions, toast, value } from "./ui.js";
 
 let previewTimer = null;
@@ -80,6 +81,6 @@ export function initQrcode() {
       align: value("textAlign"),
       cut_after_document: opts.cut_after_document,
     });
-    toast("QR Code enviado");
+    toast(t("toast.qrcodeSent"));
   });
 }

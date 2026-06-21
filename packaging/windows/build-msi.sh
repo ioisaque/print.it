@@ -14,7 +14,8 @@ if [ ! -f "$BINARY" ]; then
     echo "Use GitHub Actions ou: msys2 -> pacman -S mingw-w64-x86_64-gcc -> CGO_ENABLED=1 go build ..." >&2
     exit 1
   fi
-  CGO_ENABLED=1 go build -ldflags "-s -w -H=windowsgui" -o "$BINARY" .
+  eval "$(packaging/read-build-config.sh export)"
+  CGO_ENABLED=1 go build -ldflags "-s -w -H=windowsgui ${PRINT_IT_LDFLAGS_BUILD}" -o "$BINARY" .
 fi
 
 if command -v iscc >/dev/null 2>&1; then
@@ -28,7 +29,9 @@ else
   exit 1
 fi
 
-"$ISCC" "//DMyAppVersion=$VERSION" packaging/windows/printit.iss
+SETUP_LANG="$(packaging/read-build-config.sh setup-lang)"
+
+"$ISCC" "//DMyAppVersion=$VERSION" "//DSetupLanguage=$SETUP_LANG" packaging/windows/printit.iss
 
 echo ""
 echo "Instalador gerado em dist/print.it-${VERSION}-windows-amd64.exe"

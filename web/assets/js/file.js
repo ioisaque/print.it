@@ -1,4 +1,5 @@
 import { api } from "./api.js";
+import { t } from "./i18n.js";
 import { bindFormSubmit, readPrintOptions, toast } from "./ui.js";
 
 let filePreviewUrl = "";
@@ -65,7 +66,7 @@ function clearFilePreview() {
 
 function showFilePreview(file) {
   if (!file?.size) {
-    toast("Arquivo vazio", false);
+    toast(t("toast.fileEmpty"), false);
     return;
   }
 
@@ -91,7 +92,7 @@ function showFilePreview(file) {
 
 function handleSelectedFile(file) {
   if (!isAcceptedFile(file)) {
-    toast("Use PDF, PNG ou JPG", false);
+    toast(t("toast.fileTypes"), false);
     return;
   }
   setFileInput(file);
@@ -135,7 +136,7 @@ export function initFile() {
 
   bindFormSubmit("btnPrintFile", async () => {
     const file = document.getElementById("fileInput").files[0];
-    if (!file) throw new Error("Selecione um arquivo");
+    if (!file) throw new Error(t("toast.selectFile"));
 
     const opts = readPrintOptions();
     const fd = new FormData();
@@ -146,11 +147,11 @@ export function initFile() {
 
     if (isPdfFile(file)) {
       await api.pdf.send(fd);
-      toast("PDF enviado");
+      toast(t("toast.pdfSent"));
       return;
     }
 
     await api.image.send(fd);
-    toast("Imagem enviada");
+    toast(t("toast.imageSent"));
   });
 }

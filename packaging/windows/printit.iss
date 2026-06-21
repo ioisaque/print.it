@@ -2,6 +2,9 @@
 #ifndef MyAppVersion
 #define MyAppVersion "0.1.1"
 #endif
+#ifndef SetupLanguage
+#define SetupLanguage "pt"
+#endif
 #define MyAppPublisher "IdeYou"
 #define MyAppURL "https://github.com/ioisaque/print.it"
 #define MyAppExeName "print.it.exe"
@@ -22,6 +25,15 @@ SolidCompression=yes
 ArchitecturesInstallIn64BitMode=x64
 PrivilegesRequired=admin
 UninstallDisplayIcon={app}\{#MyAppExeName}
+ShowLanguageDialog=no
+
+#if SetupLanguage == "en"
+[Languages]
+Name: "english"; MessagesFile: "compiler:Default.isl"
+#else
+[Languages]
+Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"
+#endif
 
 [Files]
 Source: "..\..\dist\print.it-windows-amd64.exe"; DestDir: "{app}"; DestName: "{#MyAppExeName}"; Flags: ignoreversion

@@ -24,8 +24,8 @@
 
   <header class="userbar">
     <div class="userbar-left">
-      <button type="button" class="logo-btn" id="btnHome" title="Início">
-        <img class="logo" src="assets/imgs/logos/logo-dark.svg" alt="IdeYou — print.it">
+      <button type="button" class="logo-btn" id="btnHome" data-i18n-title="nav.home">
+        <img class="logo" src="assets/imgs/logo-dark.jpeg" alt="IdeYou — print.it">
       </button>
     </div>
     <div class="userbar-right">
@@ -34,58 +34,73 @@
           <span class="printer-icon idle" id="printerIcon" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 8H5a3 3 0 0 0-3 3v6h4v4h12v-4h4v-6a3 3 0 0 0-3-3zm-1 10H6v-4h12v4zm1-6a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm-3-6V3H8v3H5v2h14V5h-3z"/></svg>
           </span>
-          <span id="printerProfileLabel">Conectar impressora</span>
+          <span id="printerProfileLabel" data-i18n="printer.connect">Conectar impressora</span>
         </button>
         <div class="popover" id="printerPopover" hidden>
           <div id="popoverConnectView">
-            <p class="popover-title">Escolha uma impressora</p>
+            <p class="popover-title" data-i18n="printer.choose">Escolha uma impressora</p>
             <div class="popover-actions">
-              <button type="button" class="btn secondary" id="btnDiscover">Buscar na rede</button>
-              <button type="button" class="btn secondary" id="btnTest">Imprimir teste</button>
+              <button type="button" class="btn secondary" id="btnDiscover" data-i18n="printer.discover">Buscar na rede</button>
+              <button type="button" class="btn secondary" id="btnTest" data-i18n="printer.testPrint">Imprimir teste</button>
             </div>
             <div class="printer-list" id="printerList">
-              <p class="empty">Toque em &quot;Buscar na rede&quot; para começar.</p>
+              <p class="empty" data-i18n="printer.emptyHint">Toque em &quot;Buscar na rede&quot; para começar.</p>
             </div>
-            <button type="button" class="btn-deep-corner" id="btnDiscoverDeep" title="Varredura completa">Varredura completa</button>
+            <button type="button" class="btn-deep-corner" id="btnDiscoverDeep" data-i18n-title="printer.deepScanTitle" data-i18n="printer.deepScan">Varredura completa</button>
           </div>
           <div id="popoverProfileView" hidden>
             <div class="popover-profile-header">
               <span class="popover-address" id="popoverPrinterAddress"></span>
-              <button type="button" class="btn-icon-swap" id="btnChangePrinter" title="Trocar impressora" aria-label="Trocar impressora">
+              <button type="button" class="btn-icon-swap" id="btnChangePrinter" data-i18n-title="printer.change" data-i18n-aria-label="printer.change">
                 <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16 17.01V10h-2v7.01h-3L15 21l4-3.99h-3zM9 3L5 6.99h3V14h2V6.99h3L9 3z"/></svg>
               </button>
             </div>
             <div class="popover-details" id="popoverPrinterDetails"></div>
             <div class="popover-prefs">
-              <label for="prefPaper">Largura do papel</label>
+              <label for="prefPaper" data-i18n="printer.paperWidth">Largura do papel</label>
               <select id="prefPaper">
-                <option value="80">80 mm</option>
-                <option value="58">58 mm</option>
+                <option value="80" data-i18n="paper.mm80">80 mm</option>
+                <option value="58" data-i18n="paper.mm58">58 mm</option>
               </select>
-              <label for="prefCutPage">Ao fim de cada página</label>
+              <label for="prefCutPage" data-i18n="printer.cutAfterPage">Ao fim de cada página</label>
               <select id="prefCutPage">
-                <option value="none">Nenhum</option>
-                <option value="full">Corte total</option>
-                <option value="partial">Corte parcial</option>
+                <option value="none" data-i18n="cut.none">Nenhum</option>
+                <option value="full" data-i18n="cut.full">Corte total</option>
+                <option value="partial" data-i18n="cut.partial">Corte parcial</option>
               </select>
-              <label for="prefCutDoc">Ao fim do documento</label>
+              <label for="prefCutDoc" data-i18n="printer.cutAfterDoc">Ao fim do documento</label>
               <select id="prefCutDoc">
-                <option value="none">Nenhum</option>
-                <option value="full">Corte total</option>
-                <option value="partial">Corte parcial</option>
+                <option value="none" data-i18n="cut.none">Nenhum</option>
+                <option value="full" data-i18n="cut.full">Corte total</option>
+                <option value="partial" data-i18n="cut.partial">Corte parcial</option>
               </select>
-              <label for="prefTrimBlank">Remover linhas em branco?</label>
+              <label for="prefTrimBlank" data-i18n="printer.trimBlank">Remover linhas em branco?</label>
               <select id="prefTrimBlank">
-                <option value="never">Nunca</option>
-                <option value="page">Ao fim de cada página</option>
-                <option value="document">Ao fim do documento</option>
+                <option value="never" data-i18n="trim.never">Nunca</option>
+                <option value="page" data-i18n="trim.page">Ao fim de cada página</option>
+                <option value="document" data-i18n="trim.document">Ao fim do documento</option>
               </select>
               <button type="button" class="btn popover-advanced-btn" id="btnOpenAdvanced">
                 <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.03-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.34 3 3-1.34 3-3 3z"/></svg>
-                Avançado
+                <span data-i18n="printer.advanced">Avançado</span>
               </button>
             </div>
           </div>
+        </div>
+      </div>
+      <div class="lang-switch-wrap">
+        <button type="button" class="lang-switch-btn" id="langSwitchBtn" aria-expanded="false" aria-controls="langPopover" data-i18n-title="lang.switch" data-i18n-aria-label="lang.switch">
+          <img id="langFlagIcon" src="assets/imgs/br-flag.svg" alt="">
+        </button>
+        <div class="lang-popover" id="langPopover" hidden>
+          <button type="button" class="lang-option" data-lang="pt-br">
+            <img src="assets/imgs/br-flag.svg" alt="" aria-hidden="true">
+            <span data-i18n="lang.ptBr">Português (Brasil)</span>
+          </button>
+          <button type="button" class="lang-option" data-lang="en">
+            <img src="assets/imgs/us-flag.svg" alt="" aria-hidden="true">
+            <span data-i18n="lang.en">English</span>
+          </button>
         </div>
       </div>
     </div>
@@ -98,54 +113,54 @@
           <nav class="print-type-nav" id="printTypes">
             <button type="button" data-print-type="text" class="active">
               <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 17h18v2H3v-2zm0-5h12v2H3v-2zm0-5h18v2H3V7z"/></svg>
-              Texto
+              <span data-i18n="print.text">Texto</span>
             </button>
             <button type="button" data-print-type="file">
               <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
-              Arquivo
+              <span data-i18n="print.file">Arquivo</span>
             </button>
             <button type="button" data-print-type="barcode">
               <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M2 6h2v12H2V6zm3 0h1v12H5V6zm2 0h3v12H7V6zm4 0h1v12h-1V6zm2 0h2v12h-2V6zm3 0h1v12h-1V6zm2 0h3v12h-3V6z"/></svg>
-              Código de barras
+              <span data-i18n="print.barcode">Código de barras</span>
             </button>
             <button type="button" data-print-type="qrcode">
               <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 11h8V3H3v8zm2-6h4v4H5V5zM3 21h8v-8H3v8zm2-6h4v4H5v-4zM13 3v8h8V3h-8zm6 6h-4V5h4v4zM13 13h2v2h-2v-2zm0 4h2v2h-2v-2zm4-4h2v2h-2v-2zm0 4h2v6h-2v-6zm4-8h2v2h-2v-2zm0 6h2v2h-2v-2zm-4 4h6v2h-6v-2z"/></svg>
-              QR Code
+              <span data-i18n="print.qrcode">QR Code</span>
             </button>
           </nav>
-          <div class="format-toolbar" aria-label="Formatação">
-            <div class="format-toolbar-group" role="group" aria-label="Alinhamento">
-              <button type="button" class="format-btn active" data-align="left" title="Alinhar à esquerda" aria-label="Alinhar à esquerda">
+          <div class="format-toolbar" data-i18n-aria-label="format.label">
+            <div class="format-toolbar-group" role="group" data-i18n-aria-label="format.align">
+              <button type="button" class="format-btn active" data-align="left" data-i18n-title="format.alignLeft" data-i18n-aria-label="format.alignLeft">
                 <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M15 15H3v2h12v-2zm0-8H3v2h12V7zM3 13h18v-2H3v2zm0 8h18v-2H3v2zM3 3v2h18V3H3z"/></svg>
               </button>
-              <button type="button" class="format-btn" data-align="center" title="Centralizar" aria-label="Centralizar">
+              <button type="button" class="format-btn" data-align="center" data-i18n-title="format.alignCenter" data-i18n-aria-label="format.alignCenter">
                 <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 15v2h10v-2H7zm-4 6h18v-2H3v2zM3 13h18v-2H3v2zm4-6v2h10V7H7zM3 3v2h18V3H3z"/></svg>
               </button>
-              <button type="button" class="format-btn" data-align="right" title="Alinhar à direita" aria-label="Alinhar à direita">
+              <button type="button" class="format-btn" data-align="right" data-i18n-title="format.alignRight" data-i18n-aria-label="format.alignRight">
                 <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 21h18v-2H3v2zm6-4h12v-2H9v2zm-6-4h18v-2H3v2zm6-4h12V7H9v2zM3 3v2h18V3H3z"/></svg>
               </button>
             </div>
             <span class="format-toolbar-divider" aria-hidden="true"></span>
-            <button type="button" class="format-btn" id="textBold" title="Negrito" aria-label="Negrito" aria-pressed="false">
+            <button type="button" class="format-btn" id="textBold" data-i18n-title="format.bold" data-i18n-aria-label="format.bold" aria-pressed="false">
               <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M15.6 10.79c.97-.67 1.65-1.77 1.65-2.79 0-2.26-1.75-4-4-4H7v14h7.04c2.32 0 4.2-1.88 4.2-4.2 0-1.39-.68-2.62-1.64-3.21zM10 6.5h3c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5h-3v-3zm3.5 9H10v-3h3.5c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5z"/></svg>
             </button>
           </div>
         </div>
         <button type="button" class="btn" id="btnPrintText">
           <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M2.01 21 23 12 2.01 3 2 10l15 2-15 2z"/></svg>
-          Imprimir
+          <span data-i18n="print.print">Imprimir</span>
         </button>
         <button type="button" class="btn" id="btnPrintFile" hidden>
           <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M2.01 21 23 12 2.01 3 2 10l15 2-15 2z"/></svg>
-          Imprimir
+          <span data-i18n="print.print">Imprimir</span>
         </button>
         <button type="button" class="btn" id="btnPrintBc" hidden>
           <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M2.01 21 23 12 2.01 3 2 10l15 2-15 2z"/></svg>
-          Imprimir
+          <span data-i18n="print.print">Imprimir</span>
         </button>
         <button type="button" class="btn" id="btnPrintQr" hidden>
           <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M2.01 21 23 12 2.01 3 2 10l15 2-15 2z"/></svg>
-          Imprimir
+          <span data-i18n="print.print">Imprimir</span>
         </button>
       </div>
 
@@ -165,9 +180,9 @@
         <input id="fileInput" type="file" accept="application/pdf,.pdf,image/png,image/jpeg,image/jpg" hidden>
         <div class="file-dropzone" id="fileDropzone">
           <div class="file-dropzone-inner">
-            <p class="file-dropzone-title">Arraste um arquivo aqui</p>
-            <p class="file-dropzone-hint">ou clique para selecionar</p>
-            <p class="file-dropzone-types">PDF, PNG ou JPG</p>
+            <p class="file-dropzone-title" data-i18n="file.dropTitle">Arraste um arquivo aqui</p>
+            <p class="file-dropzone-hint" data-i18n="file.dropHint">ou clique para selecionar</p>
+            <p class="file-dropzone-types" data-i18n="file.dropTypes">PDF, PNG ou JPG</p>
           </div>
         </div>
         <div class="file-preview-view" id="filePreviewView" hidden>
@@ -182,7 +197,7 @@
           </div>
           <button type="button" class="btn secondary file-change-btn" id="btnChangeFile">
             <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z"/></svg>
-            Trocar arquivo
+            <span data-i18n="file.change">Trocar arquivo</span>
           </button>
         </div>
       </div>
@@ -190,7 +205,7 @@
       <div class="print-form" id="print-form-barcode">
         <div class="form-split">
           <div class="card">
-            <label for="bcType">Tipo</label>
+            <label for="bcType" data-i18n="barcode.type">Tipo</label>
             <select id="bcType">
               <option value="CODE128">CODE128</option>
               <option value="CODE39">CODE39</option>
@@ -198,10 +213,10 @@
               <option value="EAN8">EAN-8</option>
               <option value="ITF">ITF</option>
             </select>
-            <label for="bcData">Dados</label>
-            <input id="bcData" type="text" value="123456789" placeholder="7891234567890">
-            <label for="bcLabel">Rótulo (opcional)</label>
-            <input id="bcLabel" type="text" placeholder="Produto XYZ">
+            <label for="bcData" data-i18n="barcode.data">Dados</label>
+            <input id="bcData" type="text" value="123456789" data-i18n-placeholder="barcode.dataPlaceholder">
+            <label for="bcLabel" data-i18n="barcode.label">Rótulo (opcional)</label>
+            <input id="bcLabel" type="text" data-i18n-placeholder="barcode.labelPlaceholder">
           </div>
           <div class="card preview-card">
             <div class="receipt-preview-area receipt-preview-side">
@@ -220,10 +235,10 @@
       <div class="print-form" id="print-form-qrcode">
         <div class="form-split">
           <div class="card">
-            <label for="qrData">Conteúdo (URL, texto, etc.)</label>
-            <input id="qrData" type="text" value="Olá!" placeholder="https://exemplo.com/pedido/42">
-            <label for="qrLabel">Rótulo (opcional)</label>
-            <input id="qrLabel" type="text" placeholder="Escaneie para pagar">
+            <label for="qrData" data-i18n="qrcode.content">Conteúdo (URL, texto, etc.)</label>
+            <input id="qrData" type="text" value="Olá!" data-i18n-placeholder="qrcode.contentPlaceholder">
+            <label for="qrLabel" data-i18n="qrcode.label">Rótulo (opcional)</label>
+            <input id="qrLabel" type="text" data-i18n-placeholder="qrcode.labelPlaceholder">
           </div>
           <div class="card preview-card">
             <div class="receipt-preview-area receipt-preview-side">
@@ -242,34 +257,34 @@
 
     <section class="panel" id="panel-advanced">
       <div class="card">
-        <h2>Configuração manual</h2>
-        <p class="hint">Use apenas se a busca automática não encontrar sua impressora.</p>
+        <h2 data-i18n="advanced.title">Configuração manual</h2>
+        <p class="hint" data-i18n="advanced.hint">Use apenas se a busca automática não encontrar sua impressora.</p>
         <div class="row">
           <div>
-            <label for="cfgHost">IP da impressora</label>
-            <input id="cfgHost" type="text" placeholder="192.168.1.79">
+            <label for="cfgHost" data-i18n="advanced.host">IP da impressora</label>
+            <input id="cfgHost" type="text" data-i18n-placeholder="advanced.hostPlaceholder">
           </div>
           <div>
-            <label for="cfgPort">Porta</label>
+            <label for="cfgPort" data-i18n="advanced.port">Porta</label>
             <input id="cfgPort" type="number" value="9100">
           </div>
         </div>
         <div class="row">
           <div>
-            <label for="cfgPaper">Largura do papel (mm)</label>
+            <label for="cfgPaper" data-i18n="advanced.paperWidth">Largura do papel (mm)</label>
             <select id="cfgPaper">
-              <option value="80">80 mm</option>
-              <option value="58">58 mm</option>
+              <option value="80" data-i18n="paper.mm80">80 mm</option>
+              <option value="58" data-i18n="paper.mm58">58 mm</option>
             </select>
           </div>
           <div>
-            <label for="cfgPrintable">Área imprimível (mm, 0 = auto)</label>
-            <input id="cfgPrintable" type="number" min="0" max="80" placeholder="72">
+            <label for="cfgPrintable" data-i18n="advanced.printable">Área imprimível (mm, 0 = auto)</label>
+            <input id="cfgPrintable" type="number" min="0" max="80" data-i18n-placeholder="advanced.printablePlaceholder">
           </div>
         </div>
         <button type="button" class="btn" id="btnSaveConfig">
           <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></svg>
-          Salvar configuração
+          <span data-i18n="advanced.save">Salvar configuração</span>
         </button>
       </div>
     </section>

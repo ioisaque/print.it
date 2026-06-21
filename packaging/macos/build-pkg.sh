@@ -22,7 +22,8 @@ fi
 BINARY_SRC="$ROOT/dist/print.it-darwin-$GOARCH"
 if [ ! -f "$BINARY_SRC" ]; then
   echo ">> Compilando print.it-darwin-$GOARCH..."
-  GOOS=darwin GOARCH="$GOARCH" go build -ldflags "-s -w" -o "$BINARY_SRC" .
+  eval "$(packaging/read-build-config.sh export)"
+  GOOS=darwin GOARCH="$GOARCH" go build -ldflags "-s -w ${PRINT_IT_LDFLAGS_BUILD}" -o "$BINARY_SRC" .
 fi
 
 PKGROOT="$ROOT/dist/macos-pkgroot"

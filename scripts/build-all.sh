@@ -21,13 +21,17 @@ build_one() {
   local goos="$1"
   local goarch="$2"
   local out="$3"
+  local extra_ldflags="${4:-}"
   echo ">> GOOS=$goos GOARCH=$goarch -> $out"
-  GOOS="$goos" GOARCH="$goarch" go build -ldflags "-s -w" -o "$out" .
+  GOOS="$goos" GOARCH="$goarch" go build -ldflags "-s -w ${extra_ldflags}" -o "$out" .
 }
 
-build_one darwin arm64 "dist/print.it-darwin-arm64"
-build_one darwin amd64 "dist/print.it-darwin-amd64"
-build_one linux amd64 "dist/print.it-linux-amd64"
+eval "$(packaging/read-build-config.sh export)"
+BUILD_LDFLAGS="${PRINT_IT_LDFLAGS_BUILD}"
+
+build_one darwin arm64 "dist/print.it-darwin-arm64" "$BUILD_LDFLAGS"
+build_one darwin amd64 "dist/print.it-darwin-amd64" "$BUILD_LDFLAGS"
+build_one linux amd64 "dist/print.it-linux-amd64" "$BUILD_LDFLAGS"
 echo ">> Windows: compile no runner windows-latest (CGO) ou MSYS2 local"
 
 echo ""

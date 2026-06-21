@@ -356,33 +356,47 @@ func printPDFBytes(cfg Config, pdfData []byte, cutAfterPage, cutAfterDoc CutMode
 }
 
 func testPageLogoPNG() ([]byte, error) {
-	data, err := webFS.ReadFile("web/assets/imgs/logos/logo-dark.svg")
+	data, err := webFS.ReadFile("web/assets/imgs/logo-dark.jpeg")
 	if err != nil {
 		return nil, err
 	}
 
-	doc, err := fitz.NewFromMemory(data)
+	img, _, err := image.Decode(bytes.NewReader(data))
 	if err != nil {
 		return nil, fmt.Errorf("logo invalido: %w", err)
 	}
-	defer doc.Close()
 
-	if doc.NumPage() == 0 {
-		return nil, fmt.Errorf("logo sem paginas")
-	}
-
-	rgba, err := doc.ImageDPI(0, 203)
-	if err != nil {
-		return nil, err
-	}
-
-	bounds := rgba.Bounds()
-	white := image.NewRGBA(bounds)
-	draw.Draw(white, bounds, image.White, image.Point{}, draw.Src)
-	draw.Draw(white, bounds, rgba, bounds.Min, draw.Over)
-	cropped := trimImageBlankMargins(white)
-
+	cropped := trimImageBlankMargins(img)
 	return imageToGrayscalePNG(cropped)
+}
+
+type escposBytesOutput struct {
+	buf bytes.Buffer
+}
+
+func (o *escposBytesOutput) Write(p []byte) error {
+	_, err := o.buf.Write(p)
+	return err
+}
+
+func (o *escposBytesOutput) Close() error {
+	return nil
+}
+
+func trimTrailingLineFeeds(data []byte, keep int) []byte {
+	end := len(data)
+	for end > 0 && data[end-1] == 0x0A {
+		end--
+	}
+	if keep < 0 {
+		keep = 0
+	}
+	out := make([]byte, end+keep)
+	copy(out, data[:end])
+	for i := 0; i < keep; i++ {
+		out[end+i] = 0x0A
+	}
+	return out
 }
 
 func printTestPage(cfg Config) error {
@@ -400,7 +414,36 @@ func printTestPage(cfg Config) error {
 	if err != nil {
 		return err
 	}
-	if err := printImageBytes(cfg, logoPNG, CutNone, TrimNever); err != nil {
+
+	tmpDir, err := os.MkdirTemp("", "printit-test-*")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(tmpDir)
+
+	logoPath := filepath.Join(tmpDir, "logo.png")
+	if err := os.WriteFile(logoPath, logoPNG, 0o600); err != nil {
+		return err
+	}
+
+	var logoOut escposBytesOutput
+	if err := escposimg.ProcessImage(logoPath, escposImageConfig(cfg), &logoOut); err != nil {
+		return err
+	}
+	logoESC := trimTrailingLineFeeds(logoOut.buf.Bytes(), 1)
+
+	conn, err := dialPrinter(cfg)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	if _, err := conn.Write(logoESC); err != nil {
+		return err
+	}
+
+	esc := escpos.NewPrinter(conn)
+	if err := esc.Justify(escpos.CenterJustify); err != nil {
 		return err
 	}
 
@@ -430,7 +473,13 @@ func printTestPage(cfg Config) error {
 	lines = append(lines, fmt.Sprintf("Area imprimivel: %dmm", cfg.printableWidthMM()))
 	lines = append(lines, "", "Se voce leu isto,", "a conexao esta OK!", "")
 
-	return printText(cfg, strings.Join(lines, "\n"), "center", false, CutPartial, TrimNever)
+	for _, line := range lines {
+		if err := esc.Println(line); err != nil {
+			return err
+		}
+	}
+
+	return applyCut(esc, CutPartial)
 }
 
 func printBarcode(cfg Config, barcodeType string, data string, label string, align string, cut CutMode) error {
@@ -643,6 +692,55 @@ func trimImageBlankMargins(img image.Image) image.Image {
 	}
 
 	return img
+}
+
+func clearEdgeDarkBackground(img *image.RGBA) {
+	bounds := img.Bounds()
+	w, h := bounds.Dx(), bounds.Dy()
+	if w == 0 || h == 0 {
+		return
+	}
+
+	visited := make([]bool, w*h)
+	idx := func(x, y int) int {
+		return (y-bounds.Min.Y)*w + (x - bounds.Min.X)
+	}
+	isBg := func(c color.RGBA) bool {
+		return c.R < 48 && c.G < 48 && c.B < 48
+	}
+
+	var queue []image.Point
+	add := func(x, y int) {
+		if x < bounds.Min.X || x >= bounds.Max.X || y < bounds.Min.Y || y >= bounds.Max.Y {
+			return
+		}
+		i := idx(x, y)
+		if visited[i] || !isBg(img.RGBAAt(x, y)) {
+			return
+		}
+		visited[i] = true
+		queue = append(queue, image.Pt(x, y))
+	}
+
+	for x := bounds.Min.X; x < bounds.Max.X; x++ {
+		add(x, bounds.Min.Y)
+		add(x, bounds.Max.Y-1)
+	}
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		add(bounds.Min.X, y)
+		add(bounds.Max.X-1, y)
+	}
+
+	white := color.RGBA{R: 255, G: 255, B: 255, A: 255}
+	for len(queue) > 0 {
+		p := queue[0]
+		queue = queue[1:]
+		img.SetRGBA(p.X, p.Y, white)
+		add(p.X-1, p.Y)
+		add(p.X+1, p.Y)
+		add(p.X, p.Y-1)
+		add(p.X, p.Y+1)
+	}
 }
 
 func trimImageTrailingBlank(img image.Image) image.Image {

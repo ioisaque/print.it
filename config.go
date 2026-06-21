@@ -26,7 +26,7 @@ var (
 )
 
 func defaultConfig() Config {
-	return Config{
+	cfg := Config{
 		PrinterHost:  "192.168.1.201",
 		PrinterPort:  9100,
 		ListenHost:   "127.0.0.1",
@@ -34,6 +34,10 @@ func defaultConfig() Config {
 		PaperWidthMM: 80,
 		CorsOrigins:  []string{"*"},
 	}
+	if buildBarcodesAPIKey != "" {
+		cfg.BarcodesAPIKey = buildBarcodesAPIKey
+	}
+	return cfg
 }
 
 func loadConfig() error {

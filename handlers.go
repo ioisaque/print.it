@@ -173,10 +173,15 @@ func parsePrintOptionsJSON(cutAfterPage, cutAfterDoc, trimBlank string, cut *boo
 }
 
 func handleHealth(w http.ResponseWriter, r *http.Request) {
+	lang := buildUILanguage
+	if lang == "" {
+		lang = "pt-br"
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"ok":      true,
-		"version": version,
-		"service": "print.it",
+		"ok":               true,
+		"version":          version,
+		"service":          "print.it",
+		"default_language": lang,
 	})
 }
 

@@ -1,4 +1,5 @@
 import { api } from "./api.js";
+import { t } from "./i18n.js";
 import { applyBarcodePreviewSize, bindFormSubmit, readPrintOptions, toast, value } from "./ui.js";
 
 const BC_TYPE_MAP = {
@@ -91,6 +92,6 @@ export function initBarcode() {
       align: value("textAlign"),
       cut_after_document: opts.cut_after_document,
     });
-    toast("Código de barras enviado");
+    toast(t("toast.barcodeSent"));
   });
 }

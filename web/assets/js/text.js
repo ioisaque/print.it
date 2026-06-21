@@ -1,4 +1,5 @@
 import { api } from "./api.js";
+import { t } from "./i18n.js";
 import { bindFormSubmit, readPrintOptions, savePrefs, toast, value } from "./ui.js";
 
 function textPreviewContent() {
@@ -73,6 +74,6 @@ export function initText() {
       cut_after_document: opts.cut_after_document,
       trim_blank: opts.trim_blank,
     });
-    toast("Texto enviado");
+    toast(t("toast.textSent"));
   });
 }

@@ -11,7 +11,8 @@ OUT="$ROOT/dist/print.it-${VERSION}-linux-amd64.deb"
 
 if [ ! -f "$BINARY_SRC" ]; then
   echo ">> Compilando print.it-linux-amd64..."
-  GOOS=linux GOARCH=amd64 go build -ldflags "-s -w" -o "$BINARY_SRC" .
+  eval "$(packaging/read-build-config.sh export)"
+  GOOS=linux GOARCH=amd64 go build -ldflags "-s -w ${PRINT_IT_LDFLAGS_BUILD}" -o "$BINARY_SRC" .
 fi
 
 rm -rf "$STAGE"

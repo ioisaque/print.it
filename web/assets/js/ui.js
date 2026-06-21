@@ -1,3 +1,5 @@
+import { t } from "./i18n.js";
+
 const PREFS_KEY = "printit.prefs";
 const PROFILE_KEY = "printit.printer";
 
@@ -151,7 +153,7 @@ export async function refreshStatus(api) {
 
     if (!host) {
       icon?.classList.add("idle");
-      label.textContent = "Conectar impressora";
+      label.textContent = t("printer.connect");
       return;
     }
 
@@ -160,12 +162,12 @@ export async function refreshStatus(api) {
     if (profile?.host === host && profile?.label) {
       label.textContent = profile.label;
     } else {
-      label.textContent = "Impressora conectada";
+      label.textContent = t("printer.connected");
     }
   } catch {
     icon?.classList.remove("idle", "ok", "err");
     icon?.classList.add(profile?.host ? "err" : "idle");
-    label.textContent = profile?.label || "Conectar impressora";
+    label.textContent = profile?.label || t("printer.connect");
   }
 }
 
@@ -176,7 +178,7 @@ export function bindFormSubmit(buttonId, handler) {
     try {
       await handler();
     } catch (err) {
-      toast(err.message || "Erro", false);
+      toast(err.message || t("toast.error"), false);
     } finally {
       btn.disabled = false;
     }
