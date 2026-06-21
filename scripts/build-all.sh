@@ -21,12 +21,8 @@ build_one() {
   local goos="$1"
   local goarch="$2"
   local out="$3"
-  local ldflags="-s -w"
-  if [ "$goos" = "windows" ]; then
-    ldflags="-s -w -H=windowsgui"
-  fi
   echo ">> GOOS=$goos GOARCH=$goarch -> $out"
-  GOOS="$goos" GOARCH="$goarch" go build -ldflags "$ldflags" -o "$out" .
+  GOOS="$goos" GOARCH="$goarch" go build -ldflags "-s -w" -o "$out" .
 }
 
 build_one darwin arm64 "dist/print.it-darwin-arm64"

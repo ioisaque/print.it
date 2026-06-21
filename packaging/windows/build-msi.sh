@@ -9,7 +9,7 @@ BINARY="$ROOT/dist/print.it-windows-amd64.exe"
 
 if [ ! -f "$BINARY" ]; then
   echo ">> Compilando print.it-windows-amd64.exe..."
-  GOOS=windows GOARCH=amd64 go build -ldflags "-s -w -H=windowsgui" -o "$BINARY" .
+  GOOS=windows GOARCH=amd64 go build -ldflags "-s -w" -o "$BINARY" .
 fi
 
 if command -v iscc >/dev/null 2>&1; then

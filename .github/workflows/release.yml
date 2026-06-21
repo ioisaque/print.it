@@ -24,7 +24,7 @@ jobs:
           - goos: windows
             goarch: amd64
             ext: .exe
-            ldflags: "-s -w -H=windowsgui"
+            ldflags: "-s -w"
           - goos: darwin
             goarch: arm64
             ext: ""

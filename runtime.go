@@ -5,17 +5,32 @@ import (
 	"io"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"time"
 )
 
 const singletonPort = 9289
 
+func appendStartupLog(msg string) {
+	dir := logsDir()
+	_ = os.MkdirAll(dir, 0o755)
+	path := filepath.Join(dir, "startup.log")
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	_, _ = fmt.Fprintf(f, "%s %s\n", time.Now().Format(time.RFC3339), msg)
+}
+
 func setupRuntimeLogging() error {
 	if err := ensureDir(logsDir()); err != nil {
+		appendStartupLog("mkdir logs: " + err.Error())
 		return err
 	}
 
@@ -26,6 +41,7 @@ func setupRuntimeLogging() error {
 
 	file, err := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
 	if err != nil {
+		appendStartupLog("open log: " + err.Error())
 		return err
 	}
 
@@ -34,10 +50,26 @@ func setupRuntimeLogging() error {
 	return nil
 }
 
+func agentAlreadyHealthy() bool {
+	client := &http.Client{Timeout: 2 * time.Second}
+	resp, err := client.Get("http://127.0.0.1:9280/printit/health")
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode == http.StatusOK
+}
+
 func acquireSingleInstance() (func(), bool) {
 	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", singletonPort))
 	if err != nil {
-		return nil, true
+		appendStartupLog(fmt.Sprintf("singleton ocupado (%v)", err))
+		if agentAlreadyHealthy() {
+			appendStartupLog("instancia saudavel ja ativa, saindo")
+			return nil, true
+		}
+		appendStartupLog("sem instancia saudavel; tentando iniciar mesmo assim")
+		return func() {}, false
 	}
 
 	if err := ensureDir(dataDir()); err != nil {
@@ -63,6 +95,9 @@ func handleCLI() bool {
 		return true
 	case "--uninstall", "uninstall":
 		runUninstall()
+		return true
+	case "--logs", "logs":
+		showLogPaths()
 		return true
 	}
 
@@ -102,4 +137,14 @@ func runUninstall() {
 	if err := cmd.Run(); err != nil {
 		log.Fatalf("desinstalacao falhou: %v", err)
 	}
+}
+
+func showLogPaths() {
+	fmt.Println("Logs:")
+	fmt.Printf("  %s\n", logFilePath())
+	fmt.Printf("  %s\n", filepath.Join(logsDir(), "startup.log"))
+	if runtime.GOOS == "windows" {
+		fmt.Printf("  %s\n", filepath.Join(os.Getenv("ProgramData"), "print.it", "install.log"))
+	}
+	fmt.Printf("Config: %s\n", configFilePath())
 }

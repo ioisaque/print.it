@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -20,6 +21,11 @@ func dataDir() string {
 }
 
 func logsDir() string {
+	if runtime.GOOS == "windows" {
+		if dir := os.Getenv("ProgramData"); dir != "" {
+			return filepath.Join(dir, "print.it", "logs")
+		}
+	}
 	return filepath.Join(dataDir(), "logs")
 }
 
