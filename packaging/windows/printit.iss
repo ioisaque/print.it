@@ -23,9 +23,6 @@ ArchitecturesInstallIn64BitMode=x64
 PrivilegesRequired=admin
 UninstallDisplayIcon={app}\{#MyAppExeName}
 
-[Languages]
-Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"
-
 [Files]
 Source: "..\..\dist\print.it-windows-amd64.exe"; DestDir: "{app}"; DestName: "{#MyAppExeName}"; Flags: ignoreversion
 Source: "install-task.ps1"; DestDir: "{app}"; Flags: ignoreversion

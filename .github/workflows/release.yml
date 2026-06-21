@@ -126,6 +126,8 @@ jobs:
       - name: Build installer
         shell: bash
         run: |
+          export PATH="/c/Program Files (x86)/Inno Setup 6:$PATH"
+          test -f dist/print.it-windows-amd64.exe
           chmod +x packaging/windows/build-msi.sh
           packaging/windows/build-msi.sh
           ls -lh dist/*.exe
