@@ -21,14 +21,6 @@ jobs:
     strategy:
       matrix:
         include:
-          - goos: darwin
-            goarch: arm64
-            ext: ""
-            ldflags: "-s -w"
-          - goos: darwin
-            goarch: amd64
-            ext: ""
-            ldflags: "-s -w"
           - goos: linux
             goarch: amd64
             ext: ""
@@ -42,6 +34,7 @@ jobs:
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 1
         run: |
           set -euo pipefail
           go mod tidy
@@ -59,16 +52,15 @@ jobs:
           path: dist/print.it-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}
 
   package-macos-arm64:
-    needs: build-binaries
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/download-artifact@v7
+      - uses: actions/setup-go@v6
         with:
-          name: binary-darwin-arm64
-          path: dist
+          go-version-file: go.mod
       - name: Build pkg
         env:
+          CGO_ENABLED: 1
           PRINT_IT_PKG_ARCH: arm64
         run: |
           chmod +x packaging/macos/build-pkg.sh
@@ -80,16 +72,15 @@ jobs:
           path: dist/print.it-*-macos-arm64.pkg
 
   package-macos-amd64:
-    needs: build-binaries
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/download-artifact@v7
+      - uses: actions/setup-go@v6
         with:
-          name: binary-darwin-amd64
-          path: dist
+          go-version-file: go.mod
       - name: Build pkg
         env:
+          CGO_ENABLED: 1
           PRINT_IT_PKG_ARCH: amd64
         run: |
           chmod +x packaging/macos/build-pkg.sh

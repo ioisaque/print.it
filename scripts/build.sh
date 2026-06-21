@@ -12,8 +12,8 @@ fi
 echo ">> Baixando dependencias..."
 go mod tidy
 
-echo ">> Compilando..."
-go build -o print.it .
+echo ">> Compilando (CGO + MuPDF estatico)..."
+CGO_ENABLED=1 go build -o print.it .
 
 if [ ! -f config.json ]; then
   cp config.example.json config.json

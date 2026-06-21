@@ -204,6 +204,7 @@ http://127.0.0.1:9280/printit/
 |----------|-----------------|
 | PDV não encontra agente | `curl http://127.0.0.1:9280/printit/health` — reinstalar ou relogar |
 | Windows: `libmupdf.dll` / panic ao abrir | Binário compilado sem CGO — use release **0.1.0+** (build nativo Windows) |
+| macOS: `libmupdf.dylib` / panic no log | Binário compilado sem CGO — use release **0.1.6.4+** (build nativo macOS) |
 | `connection refused` na impressora | IP correto? Mesma rede? |
 | Segunda instância | Agente usa lock na porta 9289; só uma instância por máquina |
 | Logs (Windows) | `C:\ProgramData\print.it\logs\print.it.log` e `startup.log` |
