@@ -4,6 +4,17 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CONFIG="${ROOT}/packaging/build.config.json"
 BUILD_JSON="${ROOT}/web/assets/build.json"
+WEB_IMGS="${ROOT}/web/assets/imgs"
+
+sync_app_icons() {
+  mkdir -p "$WEB_IMGS"
+  if [ -f "${ROOT}/packaging/appicon.png" ]; then
+    cp "${ROOT}/packaging/appicon.png" "${WEB_IMGS}/appicon.png"
+  fi
+  if [ -f "${ROOT}/packaging/appicon.ico" ]; then
+    cp "${ROOT}/packaging/appicon.ico" "${WEB_IMGS}/appicon.ico"
+  fi
+}
 
 read_config() {
   if command -v python3 >/dev/null 2>&1; then
@@ -13,6 +24,16 @@ import os
 import sys
 
 config_path, build_json_path = sys.argv[1:3]
+root = os.path.dirname(os.path.dirname(config_path))
+web_imgs = os.path.join(root, "web", "assets", "imgs")
+os.makedirs(web_imgs, exist_ok=True)
+for name in ("appicon.png", "appicon.ico"):
+    src = os.path.join(root, "packaging", name)
+    if os.path.isfile(src):
+        with open(src, "rb") as icon_in:
+            with open(os.path.join(web_imgs, name), "wb") as icon_out:
+                icon_out.write(icon_in.read())
+
 config = {}
 if os.path.isfile(config_path):
     with open(config_path, encoding="utf-8") as f:
@@ -66,6 +87,7 @@ PY
   fi
 
   mkdir -p "$(dirname "$BUILD_JSON")"
+  sync_app_icons
   printf '{\n  "language": "%s"\n}\n' "$LANGUAGE" >"$BUILD_JSON"
 
   printf "PRINT_IT_LANGUAGE='%s'\n" "$LANGUAGE"

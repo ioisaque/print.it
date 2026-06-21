@@ -15,6 +15,7 @@ if [ ! -f "$BINARY" ]; then
     exit 1
   fi
   eval "$(packaging/read-build-config.sh export)"
+  packaging/embed-windows-icon.sh
   CGO_ENABLED=1 go build -ldflags "-s -w -H=windowsgui ${PRINT_IT_LDFLAGS_BUILD}" -o "$BINARY" .
 fi
 
