@@ -1,8 +1,13 @@
 #!/bin/bash
 set -e
 
-BINARY="/Applications/print.it.app/Contents/MacOS/print-it-agent"
-if [ -x "$BINARY" ]; then
+APP="/Applications/print.it.app"
+AGENT="$APP/Contents/MacOS/print-it-agent"
+LEGACY_EXE="$APP/Contents/MacOS/print.it"
+LOCAL_BIN="/usr/local/bin/print.it"
+SHARE="/usr/local/share/print.it"
+
+if [ -d "$APP" ] || [ -x "$LOCAL_BIN" ] || [ -d "$SHARE" ]; then
   echo "upgrade" > /tmp/printit-install-mode
 fi
 
@@ -14,4 +19,15 @@ fi
 
 killall print-it-agent 2>/dev/null || true
 killall print.it 2>/dev/null || true
+
+if [ -x "$AGENT" ]; then
+  pkill -f "$AGENT" 2>/dev/null || true
+fi
+if [ -x "$LEGACY_EXE" ] && [ ! -L "$LEGACY_EXE" ]; then
+  pkill -f "$LEGACY_EXE" 2>/dev/null || true
+fi
+if [ -x "$LOCAL_BIN" ] && [ ! -L "$LOCAL_BIN" ]; then
+  pkill -f "$LOCAL_BIN" 2>/dev/null || true
+fi
+
 sleep 1

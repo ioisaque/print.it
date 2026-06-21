@@ -3,6 +3,7 @@ set -e
 
 BINARY="/Applications/print.it.app/Contents/MacOS/print-it-agent"
 APP="/Applications/print.it.app"
+LOCAL_BIN="/usr/local/bin/print.it"
 SHARE="/usr/local/share/print.it"
 PLIST_TEMPLATE="$SHARE/com.printit.agent.plist"
 
@@ -18,6 +19,9 @@ if command -v codesign >/dev/null 2>&1; then
 fi
 
 mkdir -p /usr/local/bin
+if [ -e "$LOCAL_BIN" ] && [ ! -L "$LOCAL_BIN" ]; then
+  rm -f "$LOCAL_BIN"
+fi
 ln -sf "$BINARY" /usr/local/bin/print.it
 
 CONSOLE_USER="$(stat -f '%Su' /dev/console 2>/dev/null || true)"
