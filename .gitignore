@@ -7,3 +7,4 @@ dist/
 rsrc_windows_*.syso
 packaging/windows/appicon.ico
 packaging/windows/appicon.png
+packaging/windows/rcedit.exe

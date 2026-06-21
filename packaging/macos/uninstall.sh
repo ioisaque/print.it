@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-BINARY="/usr/local/bin/print.it"
+BINARY="/Applications/print.it.app/Contents/MacOS/print.it"
+APP="/Applications/print.it.app"
 SHARE="/usr/local/share/print.it"
 PLIST="$HOME/Library/LaunchAgents/com.printit.agent.plist"
 USER_ID="$(id -u)"
@@ -11,7 +12,8 @@ if [ -f "$PLIST" ]; then
   rm -f "$PLIST"
 fi
 
-rm -f "$BINARY"
+rm -f /usr/local/bin/print.it
+rm -rf "$APP"
 rm -rf "$SHARE"
 
 echo "print.it desinstalado."

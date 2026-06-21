@@ -158,6 +158,7 @@ jobs:
         run: |
           export PATH="/c/Program Files (x86)/Inno Setup 6:$PATH"
           test -f dist/print.it-windows-amd64.exe
+          python -m pip install --quiet pillow
           chmod +x packaging/windows/build-msi.sh
           packaging/windows/build-msi.sh
           ls -lh dist/*.exe

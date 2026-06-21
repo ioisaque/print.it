@@ -6,7 +6,7 @@
   <string>com.printit.agent</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/usr/local/bin/print.it</string>
+    <string>/Applications/print.it.app/Contents/MacOS/print.it</string>
   </array>
   <key>RunAtLoad</key>
   <true/>

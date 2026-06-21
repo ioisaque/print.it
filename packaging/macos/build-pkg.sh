@@ -28,13 +28,55 @@ fi
 
 PKGROOT="$ROOT/dist/macos-pkgroot"
 SCRIPTS="$ROOT/dist/macos-scripts"
+ICONSET="$ROOT/dist/appicon.iconset"
+APP="$PKGROOT/Applications/print.it.app"
 OUT="$ROOT/dist/print.it-${VERSION}-macos-${GOARCH}.pkg"
 
-rm -rf "$PKGROOT" "$SCRIPTS"
-mkdir -p "$PKGROOT/usr/local/bin" "$PKGROOT/usr/local/share/print.it" "$SCRIPTS"
+rm -rf "$PKGROOT" "$SCRIPTS" "$ICONSET"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$PKGROOT/usr/local/share/print.it" "$ICONSET" "$SCRIPTS"
 
-cp "$BINARY_SRC" "$PKGROOT/usr/local/bin/print.it"
-chmod 755 "$PKGROOT/usr/local/bin/print.it"
+cp "$BINARY_SRC" "$APP/Contents/MacOS/print.it"
+chmod 755 "$APP/Contents/MacOS/print.it"
+
+if [ ! -f packaging/appicon.png ]; then
+  echo "packaging/appicon.png nao encontrado" >&2
+  exit 1
+fi
+
+for size in 16 32 128 256 512; do
+  sips -z "$size" "$size" packaging/appicon.png --out "$ICONSET/icon_${size}x${size}.png" >/dev/null
+  if [ "$size" -le 256 ]; then
+    double=$((size * 2))
+    sips -z "$double" "$double" packaging/appicon.png --out "$ICONSET/icon_${size}x${size}@2x.png" >/dev/null
+  fi
+done
+iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/appicon.icns"
+
+cat > "$APP/Contents/Info.plist" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleExecutable</key>
+  <string>print.it</string>
+  <key>CFBundleIconFile</key>
+  <string>appicon</string>
+  <key>CFBundleIdentifier</key>
+  <string>com.printit.agent</string>
+  <key>CFBundleName</key>
+  <string>print.it</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>CFBundleShortVersionString</key>
+  <string>${VERSION}</string>
+  <key>CFBundleVersion</key>
+  <string>${VERSION}</string>
+  <key>LSUIElement</key>
+  <true/>
+</dict>
+</plist>
+EOF
+
 cp packaging/macos/com.printit.agent.plist "$PKGROOT/usr/local/share/print.it/"
 cp packaging/macos/uninstall.sh "$PKGROOT/usr/local/share/print.it/"
 chmod 755 "$PKGROOT/usr/local/share/print.it/uninstall.sh"

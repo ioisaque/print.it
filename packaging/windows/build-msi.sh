@@ -33,6 +33,14 @@ fi
 
 SETUP_LANG="$(packaging/read-build-config.sh setup-lang)"
 
+chmod +x packaging/embed-windows-icon.sh
+packaging/embed-windows-icon.sh icons-only
+
+RCEDIT="$ROOT/packaging/windows/rcedit.exe"
+if [ ! -f "$RCEDIT" ]; then
+  curl -fsSL -o "$RCEDIT" "https://github.com/electron/rcedit/releases/download/v2.0.0/rcedit-x64.exe"
+fi
+
 cp packaging/appicon.ico packaging/windows/appicon.ico
 cp packaging/delicon.ico packaging/windows/delicon.ico
 
