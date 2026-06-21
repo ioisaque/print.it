@@ -4,6 +4,7 @@ import (
 	"embed"
 	"io/fs"
 	"net/http"
+	"os"
 	"strings"
 )
 
@@ -33,10 +34,35 @@ func newRouter() http.Handler {
 	if err != nil {
 		panic(err)
 	}
-	static := http.FileServer(http.FS(webRoot))
-	mux.Handle("GET /printit/", http.StripPrefix("/printit/", static))
+	mux.Handle("GET /printit/", http.StripPrefix("/printit/", webStaticHandler(webRoot)))
 
 	return withCORS(mux)
+}
+
+func webDevDir() string {
+	if dir := os.Getenv("PRINT_IT_WEB_DIR"); dir != "" {
+		if _, err := os.Stat(dir); err == nil {
+			return dir
+		}
+	}
+
+	if _, err := os.Stat("web/index.html"); err == nil {
+		return "web"
+	}
+
+	return ""
+}
+
+func webStaticHandler(embedded fs.FS) http.Handler {
+	if dir := webDevDir(); dir != "" {
+		handler := http.FileServer(http.Dir(dir))
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Cache-Control", "no-store")
+			handler.ServeHTTP(w, r)
+		})
+	}
+
+	return http.FileServer(http.FS(embedded))
 }
 
 func redirectToUI(w http.ResponseWriter, r *http.Request) {

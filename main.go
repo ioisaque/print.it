@@ -42,6 +42,9 @@ func main() {
 	log.Printf("impressora: %s", cfg.printerAddr())
 	log.Printf("config: %s", configFilePath())
 	log.Printf("dados: %s", dataDir())
+	if dir := webDevDir(); dir != "" {
+		log.Printf("ui dev: servindo arquivos de %s/ (sem rebuild)", dir)
+	}
 
 	if err := server.ListenAndServe(); err != nil {
 		log.Fatal(err)
