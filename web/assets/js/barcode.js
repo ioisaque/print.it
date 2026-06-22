@@ -18,7 +18,7 @@ function barcodePreviewUrl(data, type) {
   params.set("txt", data.trim() || " ");
   const mapped = BC_TYPE_MAP[type] || "code128";
   params.set("type", mapped);
-  return `https://api.isaque.it/barcodes?${params.toString()}`;
+  return `${window.location.origin}/printit/barcode.it/preview?${params.toString()}`;
 }
 
 function updatePreviewLabel() {

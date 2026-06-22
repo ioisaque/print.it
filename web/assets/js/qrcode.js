@@ -8,7 +8,7 @@ let previewUrl = "";
 function qrcodePreviewUrl(data) {
   const params = new URLSearchParams();
   params.set("txt", data.trim() || " ");
-  return `${window.location.origin}/printit/barcodes/preview?${params.toString()}`;
+  return `${window.location.origin}/printit/barcode.it/preview?${params.toString()}`;
 }
 
 function updatePreviewLabel() {

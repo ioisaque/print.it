@@ -288,7 +288,7 @@ func handleBarcodesPreview(w http.ResponseWriter, r *http.Request) {
 	params.Set("logo", "false")
 	params.Set("key", cfg.BarcodesAPIKey)
 
-	upstream, err := http.Get("https://api.isaque.it/barcodes?" + params.Encode())
+	upstream, err := http.Get("https://api.isaque.it/barcode.it?" + params.Encode())
 	if err != nil {
 		writeError(w, http.StatusBadGateway, err.Error())
 		return

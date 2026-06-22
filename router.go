@@ -31,7 +31,7 @@ func newRouter() http.Handler {
 	mux.HandleFunc("POST /printit/reset", handlePrinterReset)
 	mux.HandleFunc("POST /printit/barcode", handlePrintBarcode)
 	mux.HandleFunc("POST /printit/qrcode", handlePrintQRCode)
-	mux.HandleFunc("GET /printit/barcodes/preview", handleBarcodesPreview)
+	mux.HandleFunc("GET /printit/barcode.it/preview", handleBarcodesPreview)
 
 	webRoot, err := fs.Sub(webFS, "web")
 	if err != nil {
