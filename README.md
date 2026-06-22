@@ -18,6 +18,8 @@ Baixe o instalador da sua plataforma em **[Releases](https://github.com/ioisaque
 | **Windows** | `print.it-*-windows-amd64.exe` | Executar o instalador (Next, Next…) |
 | **Linux** | `print.it-*-linux-amd64.deb` | `sudo dpkg -i print.it-*.deb` |
 
+Requisito Linux: **glibc 2.31+** (Ubuntu 20.04, Debian 11 ou mais recente). Verifique com `ldd --version`.
+
 Depois da instalação, faça **login** (ou reinicie no macOS). O agente inicia sozinho em segundo plano.
 
 ## Como usar

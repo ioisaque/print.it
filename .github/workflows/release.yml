@@ -18,6 +18,9 @@ jobs:
   build-binaries:
     name: Build ${{ matrix.goos }}-${{ matrix.goarch }}
     runs-on: ubuntu-latest
+    # Binario Linux linkado contra glibc do Ubuntu 20.04 (2.31+): roda em 20.04/22.04/24.04, Debian 11+ etc.
+    container:
+      image: ubuntu:20.04
     strategy:
       matrix:
         include:
@@ -26,6 +29,11 @@ jobs:
             ext: ""
             ldflags: "-s -w"
     steps:
+      - name: Install build dependencies
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            ca-certificates git build-essential
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v6
         with:
