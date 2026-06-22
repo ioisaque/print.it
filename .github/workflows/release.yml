@@ -17,10 +17,8 @@ permissions:
 jobs:
   build-binaries:
     name: Build ${{ matrix.goos }}-${{ matrix.goarch }}
-    runs-on: ubuntu-latest
-    # Binario Linux linkado contra glibc do Ubuntu 20.04 (2.31+): roda em 20.04/22.04/24.04, Debian 11+ etc.
-    container:
-      image: ubuntu:20.04
+    # glibc 2.35 (22.04): roda em Ubuntu 22.04/24.04, Debian 12+ etc.
+    runs-on: ubuntu-22.04
     strategy:
       matrix:
         include:
@@ -30,13 +28,6 @@ jobs:
             ldflags: "-s -w"
     steps:
       - uses: actions/checkout@v5
-      - name: Install build dependencies
-        shell: bash
-        run: |
-          set -eu
-          apt-get update
-          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-            ca-certificates git python3 build-essential
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
@@ -47,7 +38,7 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: 1
         run: |
-          set -eu
+          set -eux
           go mod tidy
           mkdir -p dist
           eval "$(packaging/read-build-config.sh export)"
