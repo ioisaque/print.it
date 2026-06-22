@@ -1,214 +1,92 @@
-# print.it
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="web/assets/imgs/logo-light.jpeg">
+  <source media="(prefers-color-scheme: light)" srcset="web/assets/imgs/logo-dark.jpeg">
+  <img alt="print.it — agente local de impressão térmica" src="web/assets/imgs/logo-dark.jpeg" height="72">
+</picture>
 
-Agente local **headless** de impressão térmica ESC/POS para PDV (Bematech MP-4200 TH ADV e similares via rede, porta 9100).
+Agente local de impressão térmica **ESC/POS** para Windows, macOS e Linux. Instale uma vez no computador do caixa ou cozinha; o serviço sobe automaticamente no login e imprime via rede (porta 9100) — sem depender do navegador nem de `window.print()`.
 
-O usuário instala uma vez; o agente sobe sozinho no login. Seu sistema de restaurantes configura impressora e dispara impressões via HTTP em `http://127.0.0.1:9280/printit/` — sem `window.print()` e sem wizard na instalação.
+Compatível com impressoras térmicas comuns (Bematech MP-4200 TH ADV, Elgin, Epson TM-T20 e similares).
 
-A interface web em [`web/`](web/) existe só para debug manual.
+## Instalação
 
-## Instalação para o usuário final (leigo)
+Baixe o instalador da sua plataforma em **[Releases](https://github.com/ioisaque/print.it/releases)**:
 
-1. Baixe o instalador da plataforma (GitHub Releases):
-   - **macOS:** `print.it-{version}-macos-{arch}.pkg` — duplo clique, aceitar, fim.
-   - **Windows:** `print.it-{version}-windows-amd64.exe` — next, next, fim.
-   - **Linux:** `print.it-{version}-linux-amd64.deb` — `sudo dpkg -i print.it-*.deb`
-2. Faça login (ou reinicie, no macOS).
-3. **Configure a impressora no sistema de gestão** — o instalador não pergunta IP, papel ou impressora.
+| Plataforma | Arquivo | Como instalar |
+|------------|---------|---------------|
+| **macOS** | `print.it-*-macos-arm64.pkg` ou `*-macos-amd64.pkg` | Duplo clique no `.pkg`, seguir o assistente |
+| **Windows** | `print.it-*-windows-amd64.exe` | Executar o instalador (Next, Next…) |
+| **Linux** | `print.it-*-linux-amd64.deb` | `sudo dpkg -i print.it-*.deb` |
 
-Desinstalar:
+Depois da instalação, faça **login** (ou reinicie no macOS). O agente inicia sozinho em segundo plano.
+
+## Como usar
+
+1. Abra a interface local no navegador: **[http://127.0.0.1:9280/printit/](http://127.0.0.1:9280/printit/)**
+2. Toque em **Conectar impressora** → **Buscar na rede** e selecione a impressora.
+3. Ajuste largura do papel (58 ou 80 mm) e outras opções, se precisar.
+4. Use as abas da interface para imprimir **texto**, **PDF**, **código de barras**, **QR Code** ou **imagem** — ou deixe seu sistema de gestão (PDV, ERP, etc.) enviar os trabalhos pela API HTTP.
+
+A interface web serve para configuração manual e testes. No dia a dia, o seu software pode imprimir direto em `http://127.0.0.1:9280/printit/` sem abrir o navegador.
+
+### Desinstalar
 
 ```bash
 print.it --uninstall
 ```
 
-## Integração para sistema de restaurantes (PDV)
+No Windows, use também **Adicionar ou remover programas**.
 
-Fluxo recomendado no seu backend ou frontend admin:
+## Integração (PDV / sistemas)
 
-```mermaid
-sequenceDiagram
-  participant PDV as SistemaRestaurante
-  participant Agent as print.it_127.0.0.1:9280
+Se você desenvolve ou integra um sistema de restaurantes, ERP ou PDV:
 
-  PDV->>Agent: GET /printit/health
-  alt agente offline
-    PDV->>PDV: Exibir link do instalador da plataforma
-  else agente online
-    PDV->>Agent: GET /printit/discover
-    PDV->>Agent: PUT /printit/config
-    PDV->>Agent: POST /printit/text|pdf|barcode|qrcode|image
-  end
-```
+1. Verifique se o agente está online: `GET http://127.0.0.1:9280/printit/health`
+2. Descubra impressoras: `GET /printit/discover`
+3. Configure remotamente: `PUT /printit/config` (IP, porta, largura do papel)
+4. Imprima: `POST /printit/text`, `/pdf`, `/barcode`, `/qrcode`, `/image`
 
-### 1. Verificar se o agente está rodando
+Exemplo rápido:
 
 ```javascript
 const PRINTIT = "http://127.0.0.1:9280/printit";
 
-async function ensurePrintIt() {
-  try {
-    const res = await fetch(`${PRINTIT}/health`, { signal: AbortSignal.timeout(2000) });
-    if (!res.ok) throw new Error("offline");
-    return await res.json(); // { ok: true, version: "0.1.0", service: "print.it" }
-  } catch {
-    // Mostrar link de download do instalador (macOS / Windows / Linux)
-    throw new Error("Instale o print.it neste computador.");
-  }
-}
-```
-
-`GET /printit/health` não expõe secrets (`barcodes_api_key`). Use `/printit/status` só para debug/admin.
-
-### 2. Configurar impressora remotamente
-
-```javascript
-// Descobrir impressoras na rede
-const discovered = await fetch(`${PRINTIT}/discover`).then(r => r.json());
-
-// Salvar config (IP, largura do papel, etc.)
-await fetch(`${PRINTIT}/config`, {
-  method: "PUT",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    printer_host: "192.168.1.201",
-    printer_port: 9100,
-    paper_width_mm: 80,
-    printable_width_mm: 72,
-  }),
-});
-```
-
-### 3. Imprimir silenciosamente
-
-```javascript
 await fetch(`${PRINTIT}/text`, {
   method: "POST",
   headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    text: "Pedido #42\nPizza Calabresa\n",
-    cut: true,
-    align: "left",
-  }),
+  body: JSON.stringify({ text: "Pedido #42\nPizza Calabresa\n", cut: true }),
 });
 ```
 
-PDF (multipart):
+> Mantenha `listen_host` em `127.0.0.1` — o agente é local e não deve ficar exposto na rede.
 
-```javascript
-const form = new FormData();
-form.append("file", pdfFile);
-form.append("cut", "true");
-await fetch(`${PRINTIT}/pdf`, { method: "POST", body: form });
-```
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| GET | `/printit/health` | Agente online? (`ok`, `version`) |
+| GET | `/printit/discover` | Busca impressoras na rede |
+| PUT | `/printit/config` | IP, porta, papel |
+| POST | `/printit/text` | Texto |
+| POST | `/printit/pdf` | PDF (multipart) |
+| POST | `/printit/barcode` | Código de barras |
+| POST | `/printit/qrcode` | QR Code |
+| POST | `/printit/image` | Imagem |
+| POST | `/printit/test` | Página de teste na impressora |
 
-> **HTTPS:** se o PDV usa `https://`, o navegador pode bloquear chamadas para `http://127.0.0.1`. Prefira proxy pelo backend na mesma máquina ou HTTP na rede local.
+## Desenvolvimento
 
-> **Segurança:** mantenha `listen_host: 127.0.0.1` — não exponha o agente na LAN.
-
-## Desenvolvimento local
-
-### Pré-requisitos
-
-- Go 1.24+
-- Impressora térmica ESC/POS na rede (IP fixo)
+Requisitos: Go 1.24+, impressora térmica na rede.
 
 ```bash
-brew install go   # macOS
+git clone https://github.com/ioisaque/print.it.git
+cd print.it
 chmod +x scripts/*.sh
 ./scripts/build.sh
 ./print.it
 ```
 
-Flags:
+Config e logs ficam em `~/Library/Application Support/print.it/` (macOS), `~/.config/print.it/` (Linux) ou `%AppData%\print.it\` (Windows).
 
-```bash
-./print.it --version
-./print.it --uninstall   # chama script da plataforma, se instalado
-```
-
-### Paths de config e logs
-
-| SO | Config | Logs |
-|----|--------|------|
-| macOS | `~/Library/Application Support/print.it/config.json` | `~/Library/Application Support/print.it/logs/print.it.log` |
-| Linux | `~/.config/print.it/config.json` | `~/.config/print.it/logs/print.it.log` |
-| Windows | `%AppData%\print.it\config.json` | `%AppData%\print.it\logs\print.it.log` |
-
-Override dev: `PRINT_IT_CONFIG=/caminho/config.json` ou `config.json` na pasta do projeto.
-
-Auto-start após instalação:
-
-| SO | Mecanismo |
-|----|-----------|
-| macOS | LaunchAgent `com.printit.agent` |
-| Windows | Task Scheduler no login |
-| Linux | systemd user unit `print.it.service` |
-
-### Build de release (binários + instaladores)
-
-```bash
-./scripts/build-all.sh
-```
-
-Gera em `dist/`:
-
-- `print.it-darwin-arm64`, `print.it-darwin-amd64`
-- `print.it-linux-amd64`
-- `print.it-windows-amd64.exe`
-- `print.it-{version}-macos-{arch}.pkg` (no macOS)
-- `print.it-{version}-linux-amd64.deb` (no Linux, com `dpkg-deb`)
-- `print.it-{version}-windows-amd64.exe` (com Inno Setup / `iscc`)
-
-CI: tag `v*` dispara [`.github/workflows/release.yml`](.github/workflows/release.yml).
-
-## Interface web (debug)
-
-```
-http://127.0.0.1:9280/printit/
-```
-
-## API
-
-| Método | Rota | Descrição |
-|--------|------|-----------|
-| GET | `/printit/health` | Health check leve (`ok`, `version`) — use no PDV |
-| GET | `/printit/status` | Status completo (config sem secrets) |
-| GET | `/printit/discover` | Busca impressoras na rede |
-| PUT | `/printit/config` | Atualizar configuração |
-| POST | `/printit/text` | Imprimir texto |
-| POST | `/printit/pdf` | Imprimir PDF |
-| POST | `/printit/image` | Imprimir imagem |
-| POST | `/printit/barcode` | Código de barras |
-| POST | `/printit/qrcode` | QR Code |
-| POST | `/printit/test` | Página de teste |
-| POST | `/printit/raw` | Bytes ESC/POS crus |
-| GET | `/printit/` | Interface web de debug |
-
-## Configuração (`config.json`)
-
-| Campo | Padrão | Descrição |
-|-------|--------|-----------|
-| `printer_host` | `192.168.1.201` | IP da impressora |
-| `printer_port` | `9100` | Porta raw |
-| `listen_host` | `127.0.0.1` | Só conexões locais |
-| `listen_port` | `9280` | Porta do agente |
-| `paper_width_mm` | `80` | Largura do papel (58 ou 80) |
-| `printable_width_mm` | `72` em papel 80mm | Área imprimível |
-| `trim_trailing_blank` | `false` | Recortar branco no fim |
-| `barcodes_api_key` | — | Chave server-side (não exposta no `/health`) |
-| `cors_origins` | `["*"]` | CORS |
-
-## Solução de problemas
-
-| Problema | O que verificar |
-|----------|-----------------|
-| PDV não encontra agente | `curl http://127.0.0.1:9280/printit/health` — reinstalar ou relogar |
-| Windows: `libmupdf.dll` / panic ao abrir | Binário compilado sem CGO — use release **0.1.0+** (build nativo Windows) |
-| macOS: `libmupdf.dylib` / panic no log | Binário compilado sem CGO — use release **0.1.6.4+** (build nativo macOS) |
-| `connection refused` na impressora | IP correto? Mesma rede? |
-| Segunda instância | Agente usa lock na porta 9289; só uma instância por máquina |
-| Logs (Windows) | `C:\ProgramData\print.it\logs\print.it.log` e `startup.log` |
-| Logs (macOS/Linux) | Application Support / `.config` / AppData conforme SO |
+Build de release: `./scripts/build-all.sh` · CI publica instaladores ao criar tag `v*`.
 
 ## Licença
 
