@@ -3,6 +3,7 @@ set -euo pipefail
 
 if command -v systemctl >/dev/null 2>&1; then
   systemctl --user disable --now print.it.service 2>/dev/null || true
+  rm -f "$HOME/.config/systemd/user/default.target.wants/print.it.service"
 fi
 
 if [ "$(id -u)" -eq 0 ]; then

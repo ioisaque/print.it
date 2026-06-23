@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=print.it
+Comment=Agente local de impressao termica
+Exec=/usr/bin/print.it
+Icon=print-it
+Terminal=false
+Type=Application
+Categories=Utility;
+StartupNotify=false
+Hidden=true
+NoDisplay=true
+X-GNOME-Autostart-enabled=true

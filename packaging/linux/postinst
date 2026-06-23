@@ -1,11 +1,50 @@
 #!/bin/sh
 set -e
 
+enable_user_service() {
+  user="$1"
+  uid="$(id -u "$user" 2>/dev/null)" || return 0
+  home="$(getent passwd "$user" 2>/dev/null | cut -d: -f6)" || return 0
+  [ -n "$home" ] && [ -d "$home" ] || return 0
+
+  wants="$home/.config/systemd/user/default.target.wants"
+  mkdir -p "$wants"
+  ln -sf /usr/lib/systemd/user/print.it.service "$wants/print.it.service"
+  chown -R "$user:$user" "$home/.config/systemd/user"
+
+  if [ -d "/run/user/$uid" ] && [ -S "/run/user/$uid/bus" ]; then
+    if command -v runuser >/dev/null 2>&1; then
+      runuser -u "$user" -- env \
+        XDG_RUNTIME_DIR="/run/user/$uid" \
+        DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$uid/bus" \
+        systemctl --user daemon-reload
+      runuser -u "$user" -- env \
+        XDG_RUNTIME_DIR="/run/user/$uid" \
+        DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$uid/bus" \
+        systemctl --user start print.it.service 2>/dev/null || true
+    fi
+  fi
+}
+
+resolve_target_user() {
+  if [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
+    echo "$SUDO_USER"
+    return
+  fi
+  if [ -n "${USER:-}" ] && [ "$USER" != "root" ]; then
+    echo "$USER"
+    return
+  fi
+  if command -v loginctl >/dev/null 2>&1; then
+    loginctl list-users --no-legend 2>/dev/null | awk '$2 == "active" || $2 == "online" {print $1; exit}'
+  fi
+}
+
 if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-remove" ]; then
   if command -v systemctl >/dev/null 2>&1; then
-    TARGET_USER="${SUDO_USER:-$USER}"
+    TARGET_USER="$(resolve_target_user)"
     if [ -n "$TARGET_USER" ] && [ "$TARGET_USER" != "root" ]; then
-      su - "$TARGET_USER" -c "systemctl --user daemon-reload && systemctl --user enable --now print.it.service" 2>/dev/null || true
+      enable_user_service "$TARGET_USER"
     fi
   fi
 fi
@@ -18,6 +57,7 @@ if [ "$1" = "configure" ]; then
   else
     echo "print.it instalado ($VERSION)."
   fi
+  echo "O agente inicia automaticamente no login."
   echo "Configure a impressora no sistema de gestao."
 fi
 
